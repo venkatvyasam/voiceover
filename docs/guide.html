@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>speak-claude Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: a field-guide column (~70ch) with a sticky contents rail on wide screens; one column on phones. */
+:root {
+  --bg: #F5F7F8; --surface: #FFFFFF; --ink: #16202A; --muted: #56636F; --line: #D9E0E5;
+  --accent: #0B7A75; --accent-ink: #FFFFFF; --accent-soft: #DFF1EF;
+  --note: #8A5A00; --note-soft: #FBF0D9; --code-bg: #ECF0F3;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --step-0: 1rem; --step-1: 1.2rem; --step-2: 1.6rem; --step-3: clamp(2.2rem, 6vw, 3.4rem);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10161B; --surface: #172028; --ink: #E3E9EE; --muted: #9AA7B2; --line: #29343E;
+    --accent: #4CC2B9; --accent-ink: #0A1A19; --accent-soft: #15302E;
+    --note: #E7B458; --note-soft: #30281A; --code-bg: #0B1015; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10161B; --surface: #172028; --ink: #E3E9EE; --muted: #9AA7B2; --line: #29343E;
+  --accent: #4CC2B9; --accent-ink: #0A1A19; --accent-soft: #15302E;
+  --note: #E7B458; --note-soft: #30281A; --code-bg: #0B1015; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 var(--step-0)/1.65 var(--body); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 0 72px;
+  display: grid; grid-template-columns: 1fr; gap: 40px; }
+@media (min-width: 980px) { .wrap { grid-template-columns: 210px minmax(0, 1fr); } }
+
+/* Hero */
+header.hero { grid-column: 1 / -1; padding-block: 56px 8px; display: grid; gap: 18px; }
+.eyebrow { font: 500 0.78rem/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+h1 { font: 800 var(--step-3)/1.02 var(--display); margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+.lede { font-size: var(--step-1); color: var(--muted); max-width: 46ch; margin: 0; }
+.wave { display: flex; align-items: center; gap: 3px; height: 34px; }
+.wave span { width: 4px; border-radius: 2px; background: var(--accent); opacity: 0.85; }
+.facts { display: flex; flex-wrap: wrap; gap: 10px 28px; margin: 6px 0 0; padding: 0; }
+.facts div { display: grid; gap: 2px; }
+.facts dt { font: 500 0.72rem/1.2 var(--mono); text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+.facts dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Contents rail */
+nav.toc { font-size: 0.92rem; }
+nav.toc p { font: 500 0.72rem/1 var(--mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 10px; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+nav.toc a { color: var(--ink); text-decoration: none; border-bottom: 1px solid transparent; }
+nav.toc a:hover, nav.toc a:focus-visible { border-bottom-color: var(--accent); outline: none; }
+@media (min-width: 980px) {
+  nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; }
+  nav.toc ol { flex-direction: column; gap: 9px; }
+}
+
+/* Content */
+main { min-width: 0; max-width: 72ch; display: grid; gap: 56px; }
+section { display: grid; gap: 14px; scroll-margin-top: 24px; }
+h2 { font: 600 var(--step-2)/1.15 var(--display); margin: 0; text-wrap: balance; display: flex; gap: 12px; align-items: baseline; }
+h2 .n { font: 500 0.85rem/1 var(--mono); color: var(--accent); }
+h3 { font: 600 var(--step-1)/1.3 var(--body); margin: 10px 0 0; }
+p, ul, ol { margin: 0; }
+ul, ol { padding-left: 1.3em; display: grid; gap: 6px; }
+a { color: var(--accent); }
+strong { font-weight: 600; }
+code { font: 0.88em/1.4 var(--mono); background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 4px; overflow-wrap: anywhere; }
+
+.code { position: relative; min-width: 0; }
+.code pre { margin: 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
+  padding: 14px 76px 14px 16px; overflow-x: auto; font: 0.86rem/1.55 var(--mono); }
+.code pre code { background: none; padding: 0; overflow-wrap: normal; }
+.code .label { font: 500 0.72rem/1 var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; }
+.copy { position: absolute; top: 8px; right: 8px; font: 500 0.75rem/1 var(--mono); padding: 6px 9px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.code .label + pre + .copy, .code:has(.label) .copy { top: 28px; }
+.copy:hover, .copy:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
+.dim { color: var(--muted); }
+
+.callout { border-left: 3px solid var(--note); background: var(--note-soft); padding: 12px 16px; border-radius: 0 8px 8px 0; display: grid; gap: 6px; }
+.callout.tip { border-left-color: var(--accent); background: var(--accent-soft); }
+.callout b { font-weight: 600; }
+
+.table { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.93rem; }
+th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 500 0.72rem/1.2 var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+td:first-child { white-space: nowrap; }
+
+.steps { counter-reset: s; list-style: none; padding: 0; display: grid; gap: 18px; }
+.steps > li { counter-increment: s; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 4px 12px; }
+.steps > li::before { content: counter(s); grid-row: 1 / span 9; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent); color: var(--accent-ink); font: 600 0.85rem/28px var(--mono); text-align: center; }
+.steps > li > * { grid-column: 2; }
+
+/* Flow diagram */
+.flow { display: grid; gap: 10px; }
+.lane { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
+.lane .tag { width: 100%; font: 500 0.72rem/1 var(--mono); text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+.box { flex: 1 1 140px; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 0.88rem; line-height: 1.4; }
+.box b { display: block; font-weight: 600; margin-bottom: 2px; }
+.box code { font-size: 0.82em; }
+.box.hook { border-color: var(--accent); }
+.arrow { align-self: center; color: var(--accent); font: 600 1.1rem/1 var(--mono); }
+@media (max-width: 640px) { .lane { flex-direction: column; } .arrow { transform: rotate(90deg); align-self: flex-start; margin-left: 14px; } }
+
+/* Chunk timeline */
+.timeline { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 10px; }
+.track { display: grid; grid-template-columns: 74px minmax(0, 1fr); align-items: center; gap: 10px; font: 500 0.75rem/1 var(--mono); color: var(--muted); }
+.bar { position: relative; height: 22px; background: var(--code-bg); border-radius: 4px; }
+.seg { position: absolute; top: 0; bottom: 0; border-radius: 4px; display: flex; align-items: center; justify-content: center;
+  font: 500 0.7rem/1 var(--mono); color: var(--accent-ink); background: var(--accent); white-space: nowrap; overflow: hidden; }
+.seg.gen { background: transparent; border: 1.5px dashed var(--accent); color: var(--accent); }
+.axis { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 10px; font: 0.7rem/1 var(--mono); color: var(--muted); }
+.axis div:last-child { display: flex; justify-content: space-between; }
+
+.ideas { list-style: none; padding: 0; display: grid; gap: 12px; }
+.ideas li { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; display: grid; gap: 4px; }
+.ideas .meta { font: 0.78rem/1.4 var(--mono); color: var(--muted); }
+
+footer { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 18px; font-size: 0.85rem; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">A Claude Code add-on · macOS</div>
+    <h1>speak-claude</h1>
+    <p class="lede">Claude Code reads its replies to you out loud, in a natural voice. Free, offline, and running entirely on your Mac.</p>
+    <div class="wave" aria-hidden="true" id="wave"></div>
+    <dl class="facts">
+      <div><dt>Cost</dt><dd>$0</dd></div>
+      <div><dt>First sound</dt><dd>about 3 s after a reply</dd></div>
+      <div><dt>Voice model</dt><dd>Kokoro, 340 MB, offline</dd></div>
+      <div><dt>Setup</dt><dd>about 5 minutes</dd></div>
+    </dl>
+  </header>
+
+  <nav class="toc" aria-label="Contents">
+    <p>Contents</p>
+    <ol>
+      <li><a href="#what">What it does</a></li>
+      <li><a href="#before">Before you start</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#try">Try it</a></li>
+      <li><a href="#controls">Everyday controls</a></li>
+      <li><a href="#learning">Using it for learning</a></li>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#customize">Make it yours</a></li>
+      <li><a href="#trouble">Troubleshooting</a></li>
+      <li><a href="#remove">Uninstall</a></li>
+      <li><a href="#extend">Ideas to build next</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <section id="what">
+      <h2><span class="n">01</span>What it does</h2>
+      <p>Every time Claude Code finishes a reply, you hear it read aloud a few seconds later. Code blocks, tables and headings are skipped, because they sound bad when spoken; you still see them on screen. When you send your next message, the old reply stops talking.</p>
+      <p>Nothing leaves your computer. The voice is <a href="https://huggingface.co/hexgrad/Kokoro-82M">Kokoro</a>, a small open text-to-speech model that runs on your Mac's processor. You download it once during setup; after that it works offline.</p>
+      <div class="callout tip"><b>Good to know</b>Claude Code has voice dictation built in: you speak, it types. It can't talk back, though. This tool adds that half.</div>
+    </section>
+
+    <section id="before">
+      <h2><span class="n">02</span>Before you start</h2>
+      <ul>
+        <li><strong>A Mac with macOS 13 (Ventura) or later.</strong> Check under Apple menu → About This Mac.</li>
+        <li><strong>Claude Code, installed and working.</strong> <code>claude --version</code> should print a version.</li>
+        <li><strong>About 500 MB of free disk space</strong>, and internet for the setup only.</li>
+      </ul>
+      <h3>Which kind of Mac do you have?</h3>
+      <p>Both kinds work, and setup is the same. If you're curious, run this in Terminal:</p>
+      <div class="code"><pre><code>uname -m</code></pre></div>
+      <p><code>arm64</code> means Apple Silicon (M1, M2, M3, M4). <code>x86_64</code> means Intel.</p>
+      <h3>Install uv, if you don't have it</h3>
+      <p>uv manages Python for this tool, so you don't have to. Check with <code>uv --version</code>. If that fails, install it, then open a new Terminal window:</p>
+      <div class="code"><pre><code>curl -LsSf https://astral.sh/uv/install.sh | sh</code></pre></div>
+      <h3>Get access to the code</h3>
+      <p>The code is in a private GitHub repository. Accept the invitation email from GitHub first. Then install the GitHub command-line tool from <a href="https://cli.github.com">cli.github.com</a> (or <code>brew install gh</code> if you use Homebrew) and sign in:</p>
+      <div class="code"><pre><code>gh auth login</code></pre></div>
+    </section>
+
+    <section id="install">
+      <h2><span class="n">03</span>Install</h2>
+      <ol class="steps">
+        <li>
+          <p><strong>Download the code</strong> into a folder in your home directory:</p>
+          <div class="code"><pre><code>gh repo clone venkatvyasam/speak-claude ~/speak-claude
+cd ~/speak-claude</code></pre></div>
+        </li>
+        <li>
+          <p><strong>Run the installer.</strong> It takes a few minutes the first time, mostly downloading the voice model.</p>
+          <div class="code"><pre><code>./install.sh</code></pre></div>
+          <p>It installs the Python packages inside the folder, downloads the voice model, adds a <code>shush</code> command, and registers two hooks in <code>~/.claude/settings.json</code>. It backs that file up first. At the end you'll hear "Hello! The Claude Code voice-over is installed."</p>
+        </li>
+        <li>
+          <p><strong>If the installer says <code>~/.local/bin</code> is not on your PATH,</strong> run the line it prints, then open a new Terminal window. That makes the <code>shush</code> command work everywhere.</p>
+        </li>
+      </ol>
+      <div class="callout"><b>Keep the folder where it is</b>The hooks point at this folder. If you move or rename it, run <code>./install.sh</code> again from the new location.</div>
+    </section>
+
+    <section id="try">
+      <h2><span class="n">04</span>Try it</h2>
+      <p>Start a new Claude Code session and ask something with a medium-length answer:</p>
+      <div class="code"><pre><code>claude</code></pre></div>
+      <div class="code"><div class="label">Then type</div><pre><code>Explain in one short paragraph what a Claude Code hook is.</code></pre></div>
+      <p>About three seconds after the answer appears, you should hear it.</p>
+      <p class="dim">Very short replies, under 120 characters, are skipped on purpose. They're usually status messages like "Done."</p>
+      <p>Heard nothing? Run <code>shush status</code> and see <a href="#trouble">Troubleshooting</a>.</p>
+    </section>
+
+    <section id="controls">
+      <h2><span class="n">05</span>Everyday controls</h2>
+      <p>Everything goes through one command, <code>shush</code>. Run it in any Terminal window, or inside Claude Code by typing <code>!</code> first, like <code>! shush -p</code>. The <code>!</code> runs it as a shell command instead of sending it to Claude.</p>
+      <div class="table"><table>
+        <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>shush</code></td><td>Stop speaking now</td></tr>
+          <tr><td><code>shush -p</code></td><td>Pause</td></tr>
+          <tr><td><code>shush -r</code></td><td>Resume where it paused</td></tr>
+          <tr><td><code>shush -a</code></td><td>Say the last reply again (instant)</td></tr>
+          <tr><td><code>shush status</code></td><td>What's muted, what's playing, and why the last reply was spoken or skipped</td></tr>
+          <tr><td><code>shush -m</code> / <code>-u</code></td><td>Mute / unmute every session</td></tr>
+          <tr><td><code>! shush -s</code> / <code>-s off</code></td><td>Mute / unmute only the Claude Code session you type it in</td></tr>
+          <tr><td><code>SPEAK=0 claude</code></td><td>Start a session that stays silent</td></tr>
+          <tr><td><code>shush -h</code></td><td>Show this list</td></tr>
+        </tbody>
+      </table></div>
+      <p>Speech stops by itself when you send your next message. The exception is a message that mentions <code>shush</code>, so asking Claude to resume or repeat still works. If several Claude Code sessions are open, the newest reply interrupts the older one.</p>
+      <div class="callout"><b>Pausing from inside Claude Code</b>By default, Claude replies after a <code>!</code> command, and that reply gets read aloud over what you just paused. To stop that, add <code>"respondToBashCommands": false</code> to <code>~/.claude/settings.json</code>, or run <code>shush</code> from a second Terminal window.</div>
+    </section>
+
+    <section id="learning">
+      <h2><span class="n">06</span>Using it for learning</h2>
+      <p>Voice helps most when your eyes are somewhere else. Some ways to use it:</p>
+      <ul>
+        <li><strong>Step away during long tasks.</strong> Ask Claude to run your tests or refactor something, go get water, and hear the result when it's done.</li>
+        <li><strong>Listen while you look at the code.</strong> Ask "walk me through what this function does", then follow along in the file while the explanation plays.</li>
+        <li><strong>Ask for spoken-length answers.</strong> "Explain recursion in three sentences" sounds much better than a reply full of tables.</li>
+        <li><strong>Replay the hard parts.</strong> <code>shush -a</code> plays the last reply again instantly.</li>
+        <li><strong>Rest your eyes</strong> during long study sessions.</li>
+      </ul>
+      <p>It doesn't help when you're already reading the reply on screen. While coding hard, mute it with <code>shush -m</code> and unmute later with <code>shush -u</code>.</p>
+    </section>
+
+    <section id="how">
+      <h2><span class="n">07</span>How it works</h2>
+      <h3>Hooks: your code runs at moments Claude Code chooses</h3>
+      <p>Claude Code can run your own commands at points in its lifecycle, such as "a reply just finished" or "the user just sent a message". These are called <a href="https://code.claude.com/docs/en/hooks">hooks</a>, and they're listed in <code>~/.claude/settings.json</code>. After installing, yours contains:</p>
+      <div class="code"><div class="label">~/.claude/settings.json (excerpt)</div><pre><code>"hooks": {
+  "Stop": [{ "hooks": [{ "type": "command",
+    "command": "\"…/speak-claude/.venv/bin/python\" \"…/speak-claude/speak_reply.py\"" }] }],
+  "UserPromptSubmit": [{ "hooks": [{ "type": "command",
+    "command": "\"…/speak-claude/shush\" --on-prompt 2>/dev/null || true" }] }]
+}</code></pre></div>
+      <p>The two hooks give two paths through the tool:</p>
+      <div class="flow" role="img" aria-label="When a reply finishes: Claude Code runs speak_reply.py, which starts speak.py, which plays audio with afplay. When you send a message: Claude Code runs shush --on-prompt, which stops the old speech.">
+        <div class="lane">
+          <div class="tag">When a reply finishes</div>
+          <div class="box"><b>Claude Code</b>finishes a reply, runs the Stop hook</div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="box hook"><b>speak_reply.py</b>checks mutes, picks the text, cleans it for speech</div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="box"><b>speak.py</b>Kokoro turns text into audio, chunk by chunk</div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="box"><b>afplay</b>macOS plays each chunk</div>
+        </div>
+        <div class="lane">
+          <div class="tag">When you send a message</div>
+          <div class="box"><b>Claude Code</b>runs the UserPromptSubmit hook</div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="box hook"><b>shush --on-prompt</b>stops the old speech</div>
+        </div>
+      </div>
+
+      <h3>What the Stop hook receives</h3>
+      <p>Claude Code sends the hook a small JSON object on standard input. The two fields this tool uses are the reply text and the session ID:</p>
+      <div class="code"><pre><code>{
+  "session_id": "25d0e2d2-d558-4dfb-…",
+  "hook_event_name": "Stop",
+  "last_assistant_message": "Recursion is when a function calls itself…",
+  …
+}</code></pre></div>
+
+      <h3>What speak_reply.py decides, in order</h3>
+      <ol>
+        <li>Is everything muted (<code>shush -m</code>), was the session started with <code>SPEAK=0</code>, or is this session muted (<code>shush -s</code>)? Then stop here.</li>
+        <li>Is the reply under 120 characters? Skip it.</li>
+        <li>Clean it for listening: drop code blocks, tables, headings and quotes; remove markdown symbols; keep list items; cut very long replies at 5000 characters.</li>
+        <li>Stop any older reply that's still talking.</li>
+        <li>Start <code>speak.py</code> as a separate background process and exit immediately. A hook should never make Claude Code wait.</li>
+        <li>Write one line to <code>speak.log</code> saying what it did and why. <code>shush status</code> reads this.</li>
+      </ol>
+
+      <h3>Why the first sound comes so quickly</h3>
+      <p>Turning a long reply into audio in one go would take 40 seconds of silence on a laptop. Instead, <code>speak.py</code> splits the text into chunks. It generates the next chunk while the current one plays. Kokoro generates speech about twice as fast as it plays, so each chunk is allowed to be at most 1.8 times as long as the one before it. That keeps the next chunk ready before the current one ends, so there are no gaps.</p>
+      <div class="timeline" role="img" aria-label="Timeline: generating chunk 1 takes until about 3 seconds, then chunk 1 plays while chunk 2 is generated, and so on, with no gaps in playback.">
+        <div class="track"><span>Generate</span><div class="bar">
+          <div class="seg gen" style="left:0%;width:14%">1</div>
+          <div class="seg gen" style="left:14%;width:14%">2</div>
+          <div class="seg gen" style="left:34%;width:22%">3</div>
+        </div></div>
+        <div class="track"><span>Play</span><div class="bar">
+          <div class="seg" style="left:14%;width:20%">chunk 1</div>
+          <div class="seg" style="left:34%;width:30%">chunk 2</div>
+          <div class="seg" style="left:64%;width:36%">chunk 3</div>
+        </div></div>
+        <div class="axis"><span></span><div><span>0 s</span><span>about 22 s</span></div></div>
+      </div>
+      <p class="dim">Rough timing on an Intel laptop. Apple Silicon Macs are faster.</p>
+
+      <h3>How pause and stop work</h3>
+      <p>Each chunk plays through <code>afplay</code>, the Mac's built-in audio player. <code>shush -p</code> sends it the signal <code>SIGSTOP</code>, which freezes the process mid-sound, and <code>shush -r</code> sends <code>SIGCONT</code> to unfreeze it. A frozen process can't exit, so <code>shush</code> (stop) sends both a stop signal and <code>SIGCONT</code>.</p>
+
+      <h3>The log</h3>
+      <p>Every reply leaves one line in <code>speak.log</code>, in the tool's folder:</p>
+      <div class="code"><pre><code>--- Sun Oct 11 11:20:39 2026 [25d0e2d2] spoke 965 chars (payload): 'Recursion is when…'
+--- Sun Oct 11 11:24:02 2026 [25d0e2d2] skipped: reply too short (14 chars, minimum 120)
+--- Sun Oct 11 11:30:15 2026 [7f3a91c0] skipped: this session muted (! shush -s off)</code></pre></div>
+
+      <h3>The files</h3>
+      <div class="table"><table>
+        <thead><tr><th>File</th><th>Role</th></tr></thead>
+        <tbody>
+          <tr><td><code>speak_reply.py</code></td><td>The Stop hook: decides whether to speak and what</td></tr>
+          <tr><td><code>speak.py</code></td><td>Text to speech with Kokoro, chunked playback, saves the last reply for <code>shush -a</code></td></tr>
+          <tr><td><code>shush</code></td><td>The controls, plus the UserPromptSubmit hook (<code>--on-prompt</code>)</td></tr>
+          <tr><td><code>setup_hooks.py</code></td><td>Adds or removes the hooks in <code>~/.claude/settings.json</code></td></tr>
+          <tr><td><code>install.sh</code>, <code>uninstall.sh</code></td><td>Setup and removal</td></tr>
+          <tr><td><code>audition.py</code></td><td>Plays voices so you can choose one</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="customize">
+      <h2><span class="n">08</span>Make it yours</h2>
+      <p>All settings are constants at the top of two files. Changes apply from the next reply; no restart needed.</p>
+      <h3>Pick a voice</h3>
+      <p>Kokoro has 28 English voices. Hear them all say the same sentence (run inside the speak-claude folder):</p>
+      <div class="code"><pre><code>.venv/bin/python audition.py af_ am_      # American women, American men
+.venv/bin/python audition.py bf_ bm_      # British women, British men
+.venv/bin/python audition.py af_heart am_fenrir bm_fable   # compare a few</code></pre></div>
+      <p>Then set <code>VOICE</code> at the top of <code>speak.py</code>, for example <code>VOICE = "am_fenrir"</code>. The default, <code>af_heart</code>, is one of the most natural. <code>am_fenrir</code> and <code>bm_fable</code> are good male voices.</p>
+      <h3>Other settings</h3>
+      <div class="table"><table>
+        <thead><tr><th>Setting</th><th>File</th><th>Default</th><th>Controls</th></tr></thead>
+        <tbody>
+          <tr><td><code>SPEED</code></td><td>speak.py</td><td>1.1</td><td>Speaking speed; 1.0 is normal</td></tr>
+          <tr><td><code>MIN_CHARS</code></td><td>speak_reply.py</td><td>120</td><td>Replies shorter than this are skipped</td></tr>
+          <tr><td><code>MAX_CHARS</code></td><td>speak_reply.py</td><td>5000</td><td>Longer replies are cut at a sentence end (about 4 to 5 minutes)</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="trouble">
+      <h2><span class="n">09</span>Troubleshooting</h2>
+      <p>Start with <code>shush status</code>. Its last line says whether the most recent reply was spoken or skipped, and why.</p>
+      <div class="table"><table>
+        <thead><tr><th>What you see</th><th>What to do</th></tr></thead>
+        <tbody>
+          <tr><td>Status says "MUTED"</td><td>Run <code>shush -u</code>, or <code>! shush -s off</code> for the current session.</td></tr>
+          <tr><td>"reply too short"</td><td>Expected for replies under 120 characters.</td></tr>
+          <tr><td>"nothing logged yet"</td><td>The hooks haven't run. Start a new Claude Code session. Type <code>/hooks</code> in Claude Code to check that they're listed. If not, run <code>./install.sh</code> again.</td></tr>
+          <tr><td>It worked, then stopped after you moved the folder</td><td>Run <code>./install.sh</code> again from the new location.</td></tr>
+          <tr><td><code>shush: command not found</code></td><td>Add <code>~/.local/bin</code> to your PATH (the installer prints the line), then open a new Terminal window.</td></tr>
+          <tr><td>Speech cuts off mid-sentence</td><td>Another Claude Code session finished a reply (newest wins), or you sent a message. Use <code>shush -a</code> to hear it again.</td></tr>
+          <tr><td>Status says "spoke" but you heard nothing</td><td>Check your Mac's volume and output device. Error messages from <code>speak.py</code> appear in <code>speak.log</code>.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="remove">
+      <h2><span class="n">10</span>Uninstall</h2>
+      <div class="code"><pre><code>cd ~/speak-claude
+./uninstall.sh</code></pre></div>
+      <p>This removes the two hooks (after backing up your settings) and the <code>shush</code> command. To remove everything, including the 340 MB model, delete the folder afterwards.</p>
+    </section>
+
+    <section id="extend">
+      <h2><span class="n">11</span>Ideas to build next</h2>
+      <p>The code is short and commented, which makes it a good place to practise. Try these with Claude Code's help:</p>
+      <ul class="ideas">
+        <li><strong>Summary mode.</strong> Speak only the first paragraph of each reply, and add <code>shush -l brief</code> / <code>full</code> to switch.<span class="meta">speak_reply.py · the speakable() function</span></li>
+        <li><strong>Hear when Claude needs you.</strong> Add a Notification hook that says "Claude needs your input" when it's waiting for permission.<span class="meta">a new hook in settings.json · see the hooks docs</span></li>
+        <li><strong>Change voice from the command line.</strong> <code>shush -v am_fenrir</code>, stored in a small settings file instead of edited in code.<span class="meta">shush and speak.py</span></li>
+        <li><strong>Say "see the code on screen"</strong> where a code block was skipped, so you know something was there.<span class="meta">speak_reply.py · speakable()</span></li>
+        <li><strong>Port it to Linux.</strong> Replace <code>afplay</code> with <code>paplay</code> or <code>aplay</code>.<span class="meta">speak.py and shush</span></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>Voice: <a href="https://huggingface.co/hexgrad/Kokoro-82M">Kokoro-82M</a> by hexgrad, run through <a href="https://github.com/thewh1teagle/kokoro-onnx">kokoro-onnx</a>. Made by Venkat for family. Questions or ideas: ask him.</footer>
+</div>
+
+<script>
+// Decorative waveform under the title.
+(function () {
+  var wave = document.getElementById("wave");
+  var heights = [6, 14, 22, 12, 28, 18, 32, 20, 10, 24, 30, 16, 8, 20, 26, 12, 18, 6, 14, 22, 10, 4];
+  heights.forEach(function (h) { var s = document.createElement("span"); s.style.height = h + "px"; wave.appendChild(s); });
+})();
+
+// Copy buttons on every code block.
+document.querySelectorAll(".code").forEach(function (block) {
+  var code = block.querySelector("pre code");
+  var button = document.createElement("button");
+  button.className = "copy";
+  button.type = "button";
+  button.textContent = "Copy";
+  button.addEventListener("click", function () {
+    var text = code.innerText;
+    function done() { button.textContent = "Copied"; setTimeout(function () { button.textContent = "Copy"; }, 1500); }
+    function selectInstead() {
+      var range = document.createRange(); range.selectNodeContents(code);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+      button.textContent = "Press ⌘C";
+    }
+    try {
+      navigator.clipboard.writeText(text).then(done, selectInstead);
+    } catch (e) { selectInstead(); }
+  });
+  block.appendChild(button);
+});
+</script>

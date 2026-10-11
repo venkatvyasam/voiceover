@@ -1,0 +1,11 @@
+[project]
+name = "speak-claude"
+version = "0.1.0"
+description = "Claude Code reads its replies aloud with a free, local voice (Kokoro)"
+requires-python = ">=3.11"
+dependencies = [
+    "kokoro-onnx>=0.6.1",
+    # 1.23.2 is the last onnxruntime with Intel Mac builds; it has Apple Silicon builds too.
+    "onnxruntime==1.23.2",
+    "soundfile>=0.14.0",
+]

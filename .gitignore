@@ -1,0 +1,17 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+last.txt
+last.wav
+last.tmp.wav
+
+# Kokoro model files (~337 MB), downloaded by setup
+models/
+speak.log
