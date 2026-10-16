@@ -19,6 +19,7 @@ import re
 import subprocess
 import sys
 import time
+import unicodedata
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -71,6 +72,35 @@ def strip_markdown(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
+def drop_foreign_scripts(s: str) -> str:
+    """Remove text the English voice can't pronounce.
+
+    Kokoro's English voice spells other scripts letter by letter ("Arabic meem,
+    Arabic ra, ..."), which is meaningless to hear. Latin (including accents like
+    "días") and Greek (σ is read "sigma") are kept; Arabic, Hebrew, Indic scripts,
+    Chinese, Cyrillic and the rest are dropped.
+    """
+    def keep(ch: str) -> bool:
+        cat = unicodedata.category(ch)[0]
+        name = unicodedata.name(ch, "")
+        if cat in "LM":                               # letters and accent marks
+            return name.startswith(("LATIN", "GREEK", "COMBINING"))
+        if cat == "N":                                # keep 2, ², ½; drop Arabic-Indic and other script digits
+            return name.startswith(("DIGIT", "SUPERSCRIPT", "SUBSCRIPT", "VULGAR", "ROMAN"))
+        return True                                   # punctuation, spaces, symbols
+
+    s = "".join(ch for ch in s if keep(ch))
+    s = re.sub(r"[(\[«“\"']\s*[)\]»”\"']", "", s)   # brackets or quotes left empty
+    s = re.sub(r"\s+([.,;:!?])", r"\1", s)            # "is ." -> "is."
+    s = re.sub(r"[:;,]+([.!?])", r"\1", s)            # "Hindi:." -> "Hindi."
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def say_powers(s: str) -> str:
+    """The voice reads "m²" as "m two"; say it the way people do."""
+    return s.replace("²", " squared").replace("³", " cubed")
+
+
 def speakable(text: str) -> str | None:
     """Everything worth hearing: prose and list items, in order.
 
@@ -94,7 +124,7 @@ def speakable(text: str) -> str | None:
             continue
         # Strip list markers so "- foo" reads as "foo", not "dash foo".
         lines = [re.sub(r"^\s*(?:[-*+]|\d+\.)\s+", "", ln) for ln in lines]
-        out = strip_markdown(" ".join(lines))
+        out = say_powers(drop_foreign_scripts(strip_markdown(" ".join(lines))))
         kept.append(out if len(out) >= 15 else None)
 
     # A sentence ending in ":" introduces something. If what it introduced was
