@@ -13,8 +13,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SETTINGS = Path.home() / ".claude" / "settings.json"
 STOP_CMD = f'"{HERE}/.venv/bin/python" "{HERE}/speak_reply.py"'
-PROMPT_CMD = f'"{HERE}/shush" --on-prompt 2>/dev/null || true'
-OURS = ("speak_reply.py", "speak-reply.py", "shush --on-prompt", 'shush" --on-prompt')
+PROMPT_CMD = f'"{HERE}/voice" --on-prompt 2>/dev/null || true'
+OURS = ("speak_reply.py", "speak-reply.py", "shush --on-prompt", 'shush" --on-prompt', 'voice" --on-prompt')
 
 
 def is_ours(hook: dict) -> bool:

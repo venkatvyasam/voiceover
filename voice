@@ -1,0 +1,111 @@
+#!/bin/bash
+# Controls for the Claude Code voice-over. Installed as `voice` and the short form `vo`.
+# `voice help` lists every command.
+DIR=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)   # this repo, even when run through ~/.local/bin
+PY="$DIR/.venv/bin/python"
+LOG="$DIR/speak.log"
+SESSION_MUTE_DIR=~/.claude/speak-muted
+
+stop_all() {
+  pkill -f "$DIR/speak.py" 2>/dev/null; pkill -x afplay 2>/dev/null
+  pkill -CONT -f "$DIR/speak.py" 2>/dev/null; pkill -CONT -x afplay 2>/dev/null  # a paused process only dies once resumed
+}
+
+usage() {
+  cat <<'EOF'
+voice: controls for the Claude Code voice-over   (vo is the short form)
+Inside Claude Code, start with !   e.g.  ! voice pause
+
+  voice stop          stop speaking now                        vo s
+  voice pause         pause                                    vo p
+  voice resume        continue where it paused                 vo r
+  voice again         say the last reply again                 vo a
+  voice status        what's muted or playing, and why the last reply was spoken or skipped
+  voice mute          mute every session
+  voice unmute        unmute every session
+  voice mute here     mute only this Claude Code session
+  voice unmute here   unmute this session
+  voice help          this list
+
+Speech also stops by itself when you send your next message.
+Start a silent session:  SPEAK=0 claude
+EOF
+}
+
+status() {
+  echo "Voice-over status"
+  if [ -e ~/.claude/.speak-off ]; then echo "  All sessions:  MUTED  (voice unmute)"; else echo "  All sessions:  on"; fi
+  if [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then
+    if [ -e "$SESSION_MUTE_DIR/$CLAUDE_CODE_SESSION_ID" ]; then echo "  This session:  MUTED  (! voice unmute here)"
+    elif [ "${SPEAK:-}" = "0" ]; then echo "  This session:  silent (started with SPEAK=0)"
+    else echo "  This session:  on"; fi
+  else
+    echo "  This session:  run '! voice status' inside Claude Code to see"
+  fi
+  local pid gen; pid=$(pgrep -x afplay | head -1); gen=$(pgrep -f "$DIR/speak.py" | head -1)
+  if ps -o stat= -p "${pid:-0}" -p "${gen:-0}" 2>/dev/null | grep -q "^T"; then echo "  Playback:      paused  (voice resume)"
+  elif [ -n "$pid" ]; then echo "  Playback:      speaking"
+  elif [ -n "$gen" ]; then echo "  Playback:      preparing speech"
+  else echo "  Playback:      idle"; fi
+  echo "  Voice:         $(sed -n 's/^VOICE = "\([^"]*\)".*/\1/p' "$DIR/speak.py") at $(sed -n 's/^SPEED = \([0-9.]*\).*/\1/p' "$DIR/speak.py")x speed"
+  if [ -s "$DIR/last.wav" ]; then echo "  Again:         ready, instant"
+  elif [ -s "$DIR/last.txt" ]; then echo "  Again:         regenerates (~5s)"
+  else echo "  Again:         nothing yet"; fi
+  # Last hook decision: this session's if we know it, else the most recent overall.
+  local last=""
+  [ -n "${CLAUDE_CODE_SESSION_ID:-}" ] && last=$(grep "^--- .*\[${CLAUDE_CODE_SESSION_ID:0:8}\]" "$LOG" 2>/dev/null | tail -1)
+  [ -z "$last" ] && last=$(grep '^--- ' "$LOG" 2>/dev/null | tail -1)
+  if [ -n "$last" ]; then echo "  Last reply:    ${last#--- }"; else echo "  Last reply:    nothing logged yet"; fi
+}
+
+need_session() {
+  [ -n "${CLAUDE_CODE_SESSION_ID:-}" ] || { echo "run this inside Claude Code, with ! in front:  ! voice $1 here"; exit 1; }
+}
+
+# Accept words or short forms, with or without dashes: "stop", "-stop", "s" all work.
+cmd=$(printf '%s' "${1:-help}" | tr '[:upper:]' '[:lower:]' | sed 's/^-*//')
+where=$(printf '%s' "${2:-}" | tr '[:upper:]' '[:lower:]')
+
+case "$cmd" in
+  stop|s)      stop_all; echo "stopped" ;;
+  pause|p)     # Freeze the generator too, so a pause also works before the first sound.
+               if pgrep -f "$DIR/speak.py" >/dev/null || pgrep -x afplay >/dev/null; then
+                 pkill -STOP -f "$DIR/speak.py" 2>/dev/null; pkill -STOP -x afplay 2>/dev/null
+                 echo "paused (voice resume to continue)"
+               else echo "nothing playing"; fi ;;
+  resume|r|continue)
+               if pgrep -f "$DIR/speak.py" >/dev/null || pgrep -x afplay >/dev/null; then
+                 pkill -CONT -f "$DIR/speak.py" 2>/dev/null; pkill -CONT -x afplay 2>/dev/null
+                 echo "resumed"
+               else echo "nothing paused"; fi ;;
+  again|a|repeat|replay)
+               [ -s "$DIR/last.txt" ] || { echo "nothing to repeat yet"; exit 0; }
+               stop_all
+               if [ -s "$DIR/last.wav" ]; then   # saved audio: instant
+                 nohup afplay "$DIR/last.wav" >/dev/null 2>&1 &
+               else                              # reply was cut off before it finished generating
+                 nohup "$PY" "$DIR/speak.py" "$(cat "$DIR/last.txt")" >/dev/null 2>&1 &
+               fi
+               echo "saying the last reply again" ;;
+  status|st)   status ;;
+  mute|m)      if [ "$where" = "here" ]; then
+                 need_session mute; stop_all; mkdir -p "$SESSION_MUTE_DIR"; touch "$SESSION_MUTE_DIR/$CLAUDE_CODE_SESSION_ID"
+                 echo "this session muted (! voice unmute here to undo)"
+               else
+                 stop_all; touch ~/.claude/.speak-off; echo "all sessions muted (voice unmute to undo)"
+               fi ;;
+  unmute|u)    if [ "$where" = "here" ]; then
+                 need_session unmute; rm -f "$SESSION_MUTE_DIR/$CLAUDE_CODE_SESSION_ID"; echo "this session unmuted"
+               else
+                 rm -f ~/.claude/.speak-off; echo "all sessions unmuted"
+               fi ;;
+  help|h)      usage ;;
+  on-prompt)   # UserPromptSubmit hook: stop the old reply when you send a new message.
+               # Silent on purpose: this hook's output would be added to Claude's context.
+               # A message that is itself a voice command (e.g. "voice resume") must not stop the speech it targets.
+               "$PY" -c 'import json, re, sys
+p = json.load(sys.stdin).get("prompt") or ""
+sys.exit(0 if re.match(r"\s*!?\s*(voice|vo)\b", p, re.I) else 1)' 2>/dev/null || stop_all
+               exit 0 ;;
+  *)           echo "voice: unknown command '$1' (nothing was changed)"; echo; usage; exit 1 ;;
+esac

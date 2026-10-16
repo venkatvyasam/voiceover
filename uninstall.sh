@@ -1,14 +1,16 @@
 #!/bin/bash
-# Removes the Claude Code voice-over hooks and the 'shush' link. Leaves this folder in place.
+# Removes the Claude Code voice-over hooks and the 'voice' / 'vo' commands. Leaves this folder in place.
 set -euo pipefail
 DIR=$(cd "$(dirname "$0")" && pwd)
 
-"$DIR/shush" >/dev/null 2>&1 || true            # stop anything still speaking
+"$DIR/voice" stop >/dev/null 2>&1 || true       # stop anything still speaking
 "$DIR/.venv/bin/python" "$DIR/setup_hooks.py" uninstall
-if [ "$(readlink ~/.local/bin/shush 2>/dev/null)" = "$DIR/shush" ]; then
-  rm ~/.local/bin/shush
-  echo "  removed ~/.local/bin/shush"
-fi
+for name in voice vo; do
+  if [ "$(readlink ~/.local/bin/$name 2>/dev/null)" = "$DIR/voice" ]; then
+    rm ~/.local/bin/$name
+    echo "  removed ~/.local/bin/$name"
+  fi
+done
 rm -f ~/.claude/.speak-off
 rm -rf ~/.claude/speak-muted
 

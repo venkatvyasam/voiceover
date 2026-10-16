@@ -10,7 +10,7 @@ Design rules, all load-bearing:
   * Never read the whole transcript (it can pass 100 MB): only its tail, and only as a
     fallback for Claude Code versions that don't send `last_assistant_message`.
 
-Every decision (spoken, or skipped and why) goes to speak.log, which `shush status` reads.
+Every decision (spoken, or skipped and why) goes to speak.log, which `voice status` reads.
 Test without speaking:  echo '{"last_assistant_message": "..."}' | .venv/bin/python speak_reply.py --dry-run
 """
 import json
@@ -29,8 +29,8 @@ LOG = HERE / "speak.log"
 MIN_CHARS = 120    # shorter replies are skipped: mostly notices like "Login expired"
 MAX_CHARS = 5000   # ~4-5 minutes of speech; longer replies are cut at a sentence end
 TAIL_BYTES = 4_000_000
-MUTE_FLAG = os.path.expanduser("~/.claude/.speak-off")            # shush -m / -u
-SESSION_MUTE_DIR = os.path.expanduser("~/.claude/speak-muted")    # shush -s: one file per session id
+MUTE_FLAG = os.path.expanduser("~/.claude/.speak-off")            # voice mute / unmute
+SESSION_MUTE_DIR = os.path.expanduser("~/.claude/speak-muted")    # voice mute here: one file per session id
 
 
 def log(session: str, msg: str) -> None:
@@ -158,11 +158,11 @@ def main() -> None:
         return log("?", "skipped: unreadable hook input")
     session = payload.get("session_id") or "?"
     if os.path.exists(MUTE_FLAG):
-        return log(session, "skipped: all sessions muted (shush -u)")
+        return log(session, "skipped: all sessions muted (voice unmute)")
     if os.environ.get("SPEAK") == "0":   # `SPEAK=0 claude` starts a silent session
         return log(session, "skipped: session started with SPEAK=0")
     if os.path.exists(os.path.join(SESSION_MUTE_DIR, session)):
-        return log(session, "skipped: this session muted (! shush -s off)")
+        return log(session, "skipped: this session muted (! voice unmute here)")
 
     # Claude Code passes the final reply itself. Reading the transcript instead
     # races the write of that reply and can return the previous message.

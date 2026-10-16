@@ -27,10 +27,20 @@ for f in kokoro-v1.0.onnx voices-v1.0.bin; do
   fi
 done
 
-step "Making the 'shush' command available"
+step "Making the 'voice' command (and its short form 'vo') available"
 mkdir -p ~/.local/bin
-ln -sf "$DIR/shush" ~/.local/bin/shush
-echo "  linked ~/.local/bin/shush"
+for name in voice vo; do
+  link=~/.local/bin/$name
+  if [ -e "$link" ] && [ "$(readlink "$link")" != "$DIR/voice" ]; then
+    echo "  skipped $name: ~/.local/bin/$name already exists and belongs to something else"
+  else
+    ln -sf "$DIR/voice" "$link"; echo "  linked ~/.local/bin/$name"
+  fi
+done
+# Earlier versions called this command 'shush'; remove that old link.
+if [ -L ~/.local/bin/shush ] && { [ ! -e ~/.local/bin/shush ] || [ "$(readlink ~/.local/bin/shush)" = "$DIR/shush" ]; }; then
+  rm ~/.local/bin/shush; echo "  removed the old 'shush' link"
+fi
 case ":$PATH:" in
   *":$HOME/.local/bin:"*) ;;
   *) echo "  ~/.local/bin is not on your PATH yet. Run this once, then open a new terminal:"
@@ -45,4 +55,4 @@ step "Testing the voice (you should hear a short sentence)"
 
 echo
 echo "Done. Start a new Claude Code session and ask something: the reply will be read aloud."
-echo "Controls: run 'shush -h'."
+echo "Controls: run 'voice help'."

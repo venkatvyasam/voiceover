@@ -23,17 +23,17 @@ You'll hear a test sentence. Start a new Claude Code session and ask something: 
 
 ## Controls
 
-Type these in a terminal, or in Claude Code with a `!` in front (`! shush -p`).
+Type these in a terminal, or in Claude Code with a `!` in front (`! voice pause`). `vo` is a short form, and each word has a one-letter shortcut (`vo p`). Dashes are optional (`voice -stop` works too).
 
 | Command | Does |
 |---|---|
-| `shush` | stop speaking |
-| `shush -p` / `shush -r` | pause / resume |
-| `shush -a` | say the last reply again |
-| `shush status` | what's muted or playing, and why the last reply was spoken or skipped |
-| `shush -m` / `shush -u` | mute / unmute every session |
-| `shush -s` / `shush -s off` | mute / unmute only the current Claude Code session |
-| `shush -h` | help |
+| `voice stop` (`vo s`) | stop speaking |
+| `voice pause` / `voice resume` (`vo p` / `vo r`) | pause / resume |
+| `voice again` (`vo a`) | say the last reply again |
+| `voice status` | what's muted or playing, and why the last reply was spoken or skipped |
+| `voice mute` / `voice unmute` | mute / unmute every session |
+| `voice mute here` / `voice unmute here` | mute / unmute only the current Claude Code session |
+| `voice help` | help |
 
 Speech stops by itself when you send your next message. Start a silent session with `SPEAK=0 claude`.
 
@@ -47,7 +47,7 @@ Listen to the options with `.venv/bin/python audition.py af_ am_` (American) or 
 ./uninstall.sh
 ```
 
-This removes the hooks and the `shush` command. Delete the folder to remove everything else.
+This removes the hooks and the `voice` / `vo` commands. Delete the folder to remove everything else.
 
 ## Files
 
@@ -55,7 +55,7 @@ This removes the hooks and the `shush` command. Delete the folder to remove ever
 |---|---|
 | `speak_reply.py` | Claude Code **Stop hook**: picks the text to read and starts `speak.py` |
 | `speak.py` | turns text into speech with Kokoro and plays it in chunks |
-| `shush` | the controls, plus the **UserPromptSubmit hook** that stops speech when you send a message |
+| `voice` | the controls (installed as `voice` and `vo`), plus the **UserPromptSubmit hook** that stops speech when you send a message |
 | `setup_hooks.py` | adds or removes the two hooks in `~/.claude/settings.json` (backs it up first) |
 | `install.sh` / `uninstall.sh` | setup and removal |
 | `audition.py` | plays voices so you can pick one |

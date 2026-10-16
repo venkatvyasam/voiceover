@@ -34,7 +34,7 @@ def chunks(text):
 
 
 def speak(text):
-    # For `shush -a`: last.txt always; last.wav only once every chunk is generated,
+    # For `voice again`: last.txt always; last.wav only once every chunk is generated,
     # so an interrupted reply never leaves a partial or mismatched recording.
     (HERE / "last.wav").unlink(missing_ok=True)
     (HERE / "last.txt").write_text(text)

@@ -197,10 +197,10 @@ cd ~/speak-claude</code></pre></div>
         <li>
           <p><strong>Run the installer.</strong> It takes a few minutes the first time, mostly downloading the voice model.</p>
           <div class="code"><pre><code>./install.sh</code></pre></div>
-          <p>It installs the Python packages inside the folder, downloads the voice model, adds a <code>shush</code> command, and registers two hooks in <code>~/.claude/settings.json</code>. It backs that file up first. At the end you'll hear "Hello! The Claude Code voice-over is installed."</p>
+          <p>It installs the Python packages inside the folder, downloads the voice model, adds a <code>voice</code> command (and its short form <code>vo</code>), and registers two hooks in <code>~/.claude/settings.json</code>. It backs that file up first. At the end you'll hear "Hello! The Claude Code voice-over is installed."</p>
         </li>
         <li>
-          <p><strong>If the installer says <code>~/.local/bin</code> is not on your PATH,</strong> run the line it prints, then open a new Terminal window. That makes the <code>shush</code> command work everywhere.</p>
+          <p><strong>If the installer says <code>~/.local/bin</code> is not on your PATH,</strong> run the line it prints, then open a new Terminal window. That makes the <code>voice</code> command work everywhere.</p>
         </li>
       </ol>
       <div class="callout"><b>Keep the folder where it is</b>The hooks point at this folder. If you move or rename it, run <code>./install.sh</code> again from the new location.</div>
@@ -213,28 +213,28 @@ cd ~/speak-claude</code></pre></div>
       <div class="code"><div class="label">Then type</div><pre><code>Explain in one short paragraph what a Claude Code hook is.</code></pre></div>
       <p>About three seconds after the answer appears, you should hear it.</p>
       <p class="dim">Very short replies, under 120 characters, are skipped on purpose. They're usually status messages like "Done."</p>
-      <p>Heard nothing? Run <code>shush status</code> and see <a href="#trouble">Troubleshooting</a>.</p>
+      <p>Heard nothing? Run <code>voice status</code> and see <a href="#trouble">Troubleshooting</a>.</p>
     </section>
 
     <section id="controls">
       <h2><span class="n">05</span>Everyday controls</h2>
-      <p>Everything goes through one command, <code>shush</code>. Run it in any Terminal window, or inside Claude Code by typing <code>!</code> first, like <code>! shush -p</code>. The <code>!</code> runs it as a shell command instead of sending it to Claude.</p>
+      <p>Everything goes through one command, <code>voice</code>, followed by what you want it to do. <code>vo</code> is a short form, and each word has a one-letter shortcut. Run it in any Terminal window, or inside Claude Code by typing <code>!</code> first, like <code>! voice pause</code>. The <code>!</code> runs it as a shell command instead of sending it to Claude.</p>
       <div class="table"><table>
-        <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+        <thead><tr><th>Command</th><th>Short</th><th>What it does</th></tr></thead>
         <tbody>
-          <tr><td><code>shush</code></td><td>Stop speaking now</td></tr>
-          <tr><td><code>shush -p</code></td><td>Pause</td></tr>
-          <tr><td><code>shush -r</code></td><td>Resume where it paused</td></tr>
-          <tr><td><code>shush -a</code></td><td>Say the last reply again (instant)</td></tr>
-          <tr><td><code>shush status</code></td><td>What's muted, what's playing, and why the last reply was spoken or skipped</td></tr>
-          <tr><td><code>shush -m</code> / <code>-u</code></td><td>Mute / unmute every session</td></tr>
-          <tr><td><code>! shush -s</code> / <code>-s off</code></td><td>Mute / unmute only the Claude Code session you type it in</td></tr>
-          <tr><td><code>SPEAK=0 claude</code></td><td>Start a session that stays silent</td></tr>
-          <tr><td><code>shush -h</code></td><td>Show this list</td></tr>
+          <tr><td><code>voice stop</code></td><td><code>vo s</code></td><td>Stop speaking now</td></tr>
+          <tr><td><code>voice pause</code></td><td><code>vo p</code></td><td>Pause, even before the first sound</td></tr>
+          <tr><td><code>voice resume</code></td><td><code>vo r</code></td><td>Continue where it paused</td></tr>
+          <tr><td><code>voice again</code></td><td><code>vo a</code></td><td>Say the last reply again (instant)</td></tr>
+          <tr><td><code>voice status</code></td><td></td><td>What's muted, what's playing, and why the last reply was spoken or skipped</td></tr>
+          <tr><td><code>voice mute / unmute</code></td><td></td><td>Mute / unmute every session</td></tr>
+          <tr><td><code>! voice mute here / unmute here</code></td><td></td><td>Mute / unmute only the Claude Code session you type it in</td></tr>
+          <tr><td><code>SPEAK=0 claude</code></td><td></td><td>Start a session that stays silent</td></tr>
+          <tr><td><code>voice help</code></td><td></td><td>Show this list</td></tr>
         </tbody>
       </table></div>
-      <p>Speech stops by itself when you send your next message. The exception is a message that mentions <code>shush</code>, so asking Claude to resume or repeat still works. If several Claude Code sessions are open, the newest reply interrupts the older one.</p>
-      <div class="callout"><b>Pausing from inside Claude Code</b>By default, Claude replies after a <code>!</code> command, and that reply gets read aloud over what you just paused. To stop that, add <code>"respondToBashCommands": false</code> to <code>~/.claude/settings.json</code>, or run <code>shush</code> from a second Terminal window.</div>
+      <p>Speech stops by itself when you send your next message. The exception is a message that starts with <code>voice</code> or <code>vo</code>, so typing a voice command to Claude still works. If several Claude Code sessions are open, the newest reply interrupts the older one.</p>
+      <div class="callout"><b>Pausing from inside Claude Code</b>By default, Claude replies after a <code>!</code> command, and that reply gets read aloud over what you just paused. To stop that, add <code>"respondToBashCommands": false</code> to <code>~/.claude/settings.json</code>, or run <code>voice</code> commands from a second Terminal window.</div>
     </section>
 
     <section id="learning">
@@ -244,10 +244,10 @@ cd ~/speak-claude</code></pre></div>
         <li><strong>Step away during long tasks.</strong> Ask Claude to run your tests or refactor something, go get water, and hear the result when it's done.</li>
         <li><strong>Listen while you look at the code.</strong> Ask "walk me through what this function does", then follow along in the file while the explanation plays.</li>
         <li><strong>Ask for spoken-length answers.</strong> "Explain recursion in three sentences" sounds much better than a reply full of tables.</li>
-        <li><strong>Replay the hard parts.</strong> <code>shush -a</code> plays the last reply again instantly.</li>
+        <li><strong>Replay the hard parts.</strong> <code>voice again</code> plays the last reply again instantly.</li>
         <li><strong>Rest your eyes</strong> during long study sessions.</li>
       </ul>
-      <p>It doesn't help when you're already reading the reply on screen. While coding hard, mute it with <code>shush -m</code> and unmute later with <code>shush -u</code>.</p>
+      <p>It doesn't help when you're already reading the reply on screen. While coding hard, mute it with <code>voice mute</code> and unmute later with <code>voice unmute</code>.</p>
     </section>
 
     <section id="how">
@@ -258,10 +258,10 @@ cd ~/speak-claude</code></pre></div>
   "Stop": [{ "hooks": [{ "type": "command",
     "command": "\"…/speak-claude/.venv/bin/python\" \"…/speak-claude/speak_reply.py\"" }] }],
   "UserPromptSubmit": [{ "hooks": [{ "type": "command",
-    "command": "\"…/speak-claude/shush\" --on-prompt 2>/dev/null || true" }] }]
+    "command": "\"…/speak-claude/voice\" --on-prompt 2>/dev/null || true" }] }]
 }</code></pre></div>
       <p>The two hooks give two paths through the tool:</p>
-      <div class="flow" role="img" aria-label="When a reply finishes: Claude Code runs speak_reply.py, which starts speak.py, which plays audio with afplay. When you send a message: Claude Code runs shush --on-prompt, which stops the old speech.">
+      <div class="flow" role="img" aria-label="When a reply finishes: Claude Code runs speak_reply.py, which starts speak.py, which plays audio with afplay. When you send a message: Claude Code runs voice --on-prompt, which stops the old speech.">
         <div class="lane">
           <div class="tag">When a reply finishes</div>
           <div class="box"><b>Claude Code</b>finishes a reply, runs the Stop hook</div>
@@ -276,7 +276,7 @@ cd ~/speak-claude</code></pre></div>
           <div class="tag">When you send a message</div>
           <div class="box"><b>Claude Code</b>runs the UserPromptSubmit hook</div>
           <div class="arrow" aria-hidden="true">→</div>
-          <div class="box hook"><b>shush --on-prompt</b>stops the old speech</div>
+          <div class="box hook"><b>voice --on-prompt</b>stops the old speech</div>
         </div>
       </div>
 
@@ -291,12 +291,12 @@ cd ~/speak-claude</code></pre></div>
 
       <h3>What speak_reply.py decides, in order</h3>
       <ol>
-        <li>Is everything muted (<code>shush -m</code>), was the session started with <code>SPEAK=0</code>, or is this session muted (<code>shush -s</code>)? Then stop here.</li>
+        <li>Is everything muted (<code>voice mute</code>), was the session started with <code>SPEAK=0</code>, or is this session muted (<code>voice mute here</code>)? Then stop here.</li>
         <li>Is the reply under 120 characters? Skip it.</li>
         <li>Clean it for listening: drop code blocks, tables, headings and quotes; remove markdown symbols; keep list items; cut very long replies at 5000 characters.</li>
         <li>Stop any older reply that's still talking.</li>
         <li>Start <code>speak.py</code> as a separate background process and exit immediately. A hook should never make Claude Code wait.</li>
-        <li>Write one line to <code>speak.log</code> saying what it did and why. <code>shush status</code> reads this.</li>
+        <li>Write one line to <code>speak.log</code> saying what it did and why. <code>voice status</code> reads this.</li>
       </ol>
 
       <h3>Why the first sound comes so quickly</h3>
@@ -317,21 +317,21 @@ cd ~/speak-claude</code></pre></div>
       <p class="dim">Rough timing on an Intel laptop. Apple Silicon Macs are faster.</p>
 
       <h3>How pause and stop work</h3>
-      <p>Each chunk plays through <code>afplay</code>, the Mac's built-in audio player. <code>shush -p</code> sends it the signal <code>SIGSTOP</code>, which freezes the process mid-sound, and <code>shush -r</code> sends <code>SIGCONT</code> to unfreeze it. A frozen process can't exit, so <code>shush</code> (stop) sends both a stop signal and <code>SIGCONT</code>.</p>
+      <p>Each chunk plays through <code>afplay</code>, the Mac's built-in audio player. <code>voice pause</code> sends the signal <code>SIGSTOP</code> to both the audio player and the speech generator, which freezes them mid-sound; <code>voice resume</code> sends <code>SIGCONT</code> to unfreeze them. A frozen process can't exit, so <code>voice stop</code> sends both a stop signal and <code>SIGCONT</code>.</p>
 
       <h3>The log</h3>
       <p>Every reply leaves one line in <code>speak.log</code>, in the tool's folder:</p>
       <div class="code"><pre><code>--- Sun Oct 11 11:20:39 2026 [25d0e2d2] spoke 965 chars (payload): 'Recursion is when…'
 --- Sun Oct 11 11:24:02 2026 [25d0e2d2] skipped: reply too short (14 chars, minimum 120)
---- Sun Oct 11 11:30:15 2026 [7f3a91c0] skipped: this session muted (! shush -s off)</code></pre></div>
+--- Sun Oct 11 11:30:15 2026 [7f3a91c0] skipped: this session muted (! voice unmute here)</code></pre></div>
 
       <h3>The files</h3>
       <div class="table"><table>
         <thead><tr><th>File</th><th>Role</th></tr></thead>
         <tbody>
           <tr><td><code>speak_reply.py</code></td><td>The Stop hook: decides whether to speak and what</td></tr>
-          <tr><td><code>speak.py</code></td><td>Text to speech with Kokoro, chunked playback, saves the last reply for <code>shush -a</code></td></tr>
-          <tr><td><code>shush</code></td><td>The controls, plus the UserPromptSubmit hook (<code>--on-prompt</code>)</td></tr>
+          <tr><td><code>speak.py</code></td><td>Text to speech with Kokoro, chunked playback, saves the last reply for <code>voice again</code></td></tr>
+          <tr><td><code>voice</code></td><td>The controls, plus the UserPromptSubmit hook (<code>--on-prompt</code>)</td></tr>
           <tr><td><code>setup_hooks.py</code></td><td>Adds or removes the hooks in <code>~/.claude/settings.json</code></td></tr>
           <tr><td><code>install.sh</code>, <code>uninstall.sh</code></td><td>Setup and removal</td></tr>
           <tr><td><code>audition.py</code></td><td>Plays voices so you can choose one</td></tr>
@@ -361,16 +361,16 @@ cd ~/speak-claude</code></pre></div>
 
     <section id="trouble">
       <h2><span class="n">09</span>Troubleshooting</h2>
-      <p>Start with <code>shush status</code>. Its last line says whether the most recent reply was spoken or skipped, and why.</p>
+      <p>Start with <code>voice status</code>. Its last line says whether the most recent reply was spoken or skipped, and why.</p>
       <div class="table"><table>
         <thead><tr><th>What you see</th><th>What to do</th></tr></thead>
         <tbody>
-          <tr><td>Status says "MUTED"</td><td>Run <code>shush -u</code>, or <code>! shush -s off</code> for the current session.</td></tr>
+          <tr><td>Status says "MUTED"</td><td>Run <code>voice unmute</code>, or <code>! voice unmute here</code> for the current session.</td></tr>
           <tr><td>"reply too short"</td><td>Expected for replies under 120 characters.</td></tr>
           <tr><td>"nothing logged yet"</td><td>The hooks haven't run. Start a new Claude Code session. Type <code>/hooks</code> in Claude Code to check that they're listed. If not, run <code>./install.sh</code> again.</td></tr>
           <tr><td>It worked, then stopped after you moved the folder</td><td>Run <code>./install.sh</code> again from the new location.</td></tr>
-          <tr><td><code>shush: command not found</code></td><td>Add <code>~/.local/bin</code> to your PATH (the installer prints the line), then open a new Terminal window.</td></tr>
-          <tr><td>Speech cuts off mid-sentence</td><td>Another Claude Code session finished a reply (newest wins), or you sent a message. Use <code>shush -a</code> to hear it again.</td></tr>
+          <tr><td><code>voice: command not found</code></td><td>Add <code>~/.local/bin</code> to your PATH (the installer prints the line), then open a new Terminal window.</td></tr>
+          <tr><td>Speech cuts off mid-sentence</td><td>Another Claude Code session finished a reply (newest wins), or you sent a message. Use <code>voice again</code> to hear it again.</td></tr>
           <tr><td>Status says "spoke" but you heard nothing</td><td>Check your Mac's volume and output device. Error messages from <code>speak.py</code> appear in <code>speak.log</code>.</td></tr>
         </tbody>
       </table></div>
@@ -380,18 +380,18 @@ cd ~/speak-claude</code></pre></div>
       <h2><span class="n">10</span>Uninstall</h2>
       <div class="code"><pre><code>cd ~/speak-claude
 ./uninstall.sh</code></pre></div>
-      <p>This removes the two hooks (after backing up your settings) and the <code>shush</code> command. To remove everything, including the 340 MB model, delete the folder afterwards.</p>
+      <p>This removes the two hooks (after backing up your settings) and the <code>voice</code> and <code>vo</code> commands. To remove everything, including the 340 MB model, delete the folder afterwards.</p>
     </section>
 
     <section id="extend">
       <h2><span class="n">11</span>Ideas to build next</h2>
       <p>The code is short and commented, which makes it a good place to practise. Try these with Claude Code's help:</p>
       <ul class="ideas">
-        <li><strong>Summary mode.</strong> Speak only the first paragraph of each reply, and add <code>shush -l brief</code> / <code>full</code> to switch.<span class="meta">speak_reply.py · the speakable() function</span></li>
+        <li><strong>Summary mode.</strong> Speak only the first paragraph of each reply, and add <code>voice brief</code> / <code>voice full</code> to switch.<span class="meta">speak_reply.py · the speakable() function</span></li>
         <li><strong>Hear when Claude needs you.</strong> Add a Notification hook that says "Claude needs your input" when it's waiting for permission.<span class="meta">a new hook in settings.json · see the hooks docs</span></li>
-        <li><strong>Change voice from the command line.</strong> <code>shush -v am_fenrir</code>, stored in a small settings file instead of edited in code.<span class="meta">shush and speak.py</span></li>
+        <li><strong>Change voice from the command line.</strong> <code>voice use am_fenrir</code>, stored in a small settings file instead of edited in code.<span class="meta">voice and speak.py</span></li>
         <li><strong>Say "see the code on screen"</strong> where a code block was skipped, so you know something was there.<span class="meta">speak_reply.py · speakable()</span></li>
-        <li><strong>Port it to Linux.</strong> Replace <code>afplay</code> with <code>paplay</code> or <code>aplay</code>.<span class="meta">speak.py and shush</span></li>
+        <li><strong>Port it to Linux.</strong> Replace <code>afplay</code> with <code>paplay</code> or <code>aplay</code>.<span class="meta">speak.py and voice</span></li>
       </ul>
     </section>
   </main>
