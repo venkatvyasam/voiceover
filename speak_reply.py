@@ -31,6 +31,7 @@ MAX_CHARS = 5000   # ~4-5 minutes of speech; longer replies are cut at a sentenc
 TAIL_BYTES = 4_000_000
 MUTE_FLAG = os.path.expanduser("~/.claude/.speak-off")            # voice mute / unmute
 SESSION_MUTE_DIR = os.path.expanduser("~/.claude/speak-muted")    # voice mute here: one file per session id
+SESSION_LAST_DIR = HERE / "last-by-session"                        # voice again: each session's last spoken reply
 
 
 def log(session: str, msg: str) -> None:
@@ -192,6 +193,8 @@ def main() -> None:
     subprocess.run(["pkill", "-f", str(HERE / "speak.py")],
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     log(session, f"spoke {len(line)} chars ({source}): {line[:80]!r}")
+    SESSION_LAST_DIR.mkdir(exist_ok=True)
+    (SESSION_LAST_DIR / f"{session}.txt").write_text(line)
     with open(LOG, "ab") as out:   # speak.py errors land in the log too
         subprocess.Popen(SPEAK + [line], stdout=out, stderr=out,
                          stdin=subprocess.DEVNULL, start_new_session=True)

@@ -10,6 +10,7 @@ wheels/
 .venv
 last.txt
 last.wav
+last-by-session/
 last.tmp.wav
 
 # Kokoro model files (~337 MB), downloaded by setup

@@ -6,6 +6,14 @@ PY="$DIR/.venv/bin/python"
 LOG="$DIR/speak.log"
 SESSION_MUTE_DIR=~/.claude/speak-muted
 
+# What `voice again` repeats: inside Claude Code, that session's last spoken reply; elsewhere, the last from any session.
+again_file() {
+  if [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then echo "$DIR/last-by-session/$CLAUDE_CODE_SESSION_ID.txt"; else echo "$DIR/last.txt"; fi
+}
+
+# last.wav is the audio of last.txt, so it can be replayed only when that's the text we want.
+saved_audio_matches() { [ -s "$DIR/last.wav" ] && cmp -s "$1" "$DIR/last.txt"; }
+
 stop_all() {
   pkill -f "$DIR/speak.py" 2>/dev/null; pkill -x afplay 2>/dev/null
   pkill -CONT -f "$DIR/speak.py" 2>/dev/null; pkill -CONT -x afplay 2>/dev/null  # a paused process only dies once resumed
@@ -19,7 +27,7 @@ Inside Claude Code, start with !   e.g.  ! voice pause
   voice stop          stop speaking now                        vo s
   voice pause         pause                                    vo p
   voice resume        continue where it paused                 vo r
-  voice again         say the last reply again                 vo a
+  voice again         say this session's last reply again      vo a
   voice status        what's muted or playing, and why the last reply was spoken or skipped
   voice mute          mute every session
   voice unmute        unmute every session
@@ -48,9 +56,10 @@ status() {
   elif [ -n "$gen" ]; then echo "  Playback:      preparing speech"
   else echo "  Playback:      idle"; fi
   echo "  Voice:         $(sed -n 's/^VOICE = "\([^"]*\)".*/\1/p' "$DIR/speak.py") at $(sed -n 's/^SPEED = \([0-9.]*\).*/\1/p' "$DIR/speak.py")x speed"
-  if [ -s "$DIR/last.wav" ]; then echo "  Again:         ready, instant"
-  elif [ -s "$DIR/last.txt" ]; then echo "  Again:         regenerates (~5s)"
-  else echo "  Again:         nothing yet"; fi
+  local again; again=$(again_file)
+  if [ ! -s "$again" ]; then echo "  Again:         nothing spoken yet"
+  elif saved_audio_matches "$again"; then echo "  Again:         ready, instant"
+  else echo "  Again:         regenerates (~3s)"; fi
   # Last hook decision: this session's if we know it, else the most recent overall.
   local last=""
   [ -n "${CLAUDE_CODE_SESSION_ID:-}" ] && last=$(grep "^--- .*\[${CLAUDE_CODE_SESSION_ID:0:8}\]" "$LOG" 2>/dev/null | tail -1)
@@ -79,12 +88,13 @@ case "$cmd" in
                  echo "resumed"
                else echo "nothing paused"; fi ;;
   again|a|repeat|replay)
-               [ -s "$DIR/last.txt" ] || { echo "nothing to repeat yet"; exit 0; }
+               text=$(again_file)
+               [ -s "$text" ] || { echo "nothing spoken yet to repeat"; exit 0; }
                stop_all
-               if [ -s "$DIR/last.wav" ]; then   # saved audio: instant
+               if saved_audio_matches "$text"; then   # saved audio: instant
                  nohup afplay "$DIR/last.wav" >/dev/null 2>&1 &
-               else                              # reply was cut off before it finished generating
-                 nohup "$PY" "$DIR/speak.py" "$(cat "$DIR/last.txt")" >/dev/null 2>&1 &
+               else                                   # another session spoke since, or the reply was cut off
+                 nohup "$PY" "$DIR/speak.py" "$(cat "$text")" >/dev/null 2>&1 &
                fi
                echo "saying the last reply again" ;;
   status|st)   status ;;
