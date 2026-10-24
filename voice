@@ -33,6 +33,7 @@ Inside Claude Code, start with !   e.g.  ! voice pause
   voice unmute        unmute every session
   voice mute here     mute only this Claude Code session
   voice unmute here   unmute this session
+  voice read FILE     read a document aloud with readalong, if it is installed
   voice help          this list
 
 Speech also stops by itself when you send your next message.
@@ -109,6 +110,9 @@ case "$cmd" in
                else
                  rm -f ~/.claude/.speak-off; echo "all sessions unmuted"
                fi ;;
+  read)        shift   # documents are readalong's job: github.com/venkatvyasam/readalong
+               command -v readalong >/dev/null 2>&1 || { echo "voice read needs readalong: github.com/venkatvyasam/readalong"; exit 1; }
+               exec readalong "$@" ;;
   help|h)      usage ;;
   on-prompt)   # UserPromptSubmit hook: stop the old reply when you send a new message.
                # Silent on purpose: this hook's output would be added to Claude's context.

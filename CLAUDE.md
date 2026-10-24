@@ -12,6 +12,7 @@ Two Claude Code hooks, registered in `~/.claude/settings.json` by `setup_hooks.p
 
 `speak.py` splits text into chunks that grow by at most `GROWTH` (1.8x), generates the next chunk while the current one plays through `afplay`, and saves `last.txt` / `last.wav` for `voice again`.
 `voice` is the user's control panel (stop, pause, resume, again, mute, status), installed as `voice` and `vo`. `voice help` lists everything.
+`voice read FILE` hands off to the separate `readalong` tool (github.com/venkatvyasam/readalong); reading whole documents lives there, not here.
 
 State outside the repo: `~/.claude/.speak-off` (mute all), `~/.claude/speak-muted/<session_id>` (mute one session).
 

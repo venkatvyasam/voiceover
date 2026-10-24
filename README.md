@@ -33,6 +33,7 @@ Type these in a terminal, or in Claude Code with a `!` in front (`! voice pause`
 | `voice status` | what's muted or playing, and why the last reply was spoken or skipped |
 | `voice mute` / `voice unmute` | mute / unmute every session |
 | `voice mute here` / `voice unmute here` | mute / unmute only the current Claude Code session |
+| `voice read FILE` | read a document aloud with [readalong](https://github.com/venkatvyasam/readalong), if it's installed |
 | `voice help` | help |
 
 Speech stops by itself when you send your next message. Start a silent session with `SPEAK=0 claude`.
