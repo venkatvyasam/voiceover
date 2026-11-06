@@ -78,6 +78,8 @@ tbody th { font-weight: 600; width: 22%; }
 .point { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
 .point h3 { margin: 0 0 6px; font-size: 1rem; }
 .point p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+.callout { background: var(--sc-soft); border-left: 3px solid var(--sc); border-radius: 4px; padding: 10px 14px; }
+td.sc, td.ra { font-weight: 600; white-space: nowrap; }
 pre { font-family: var(--mono); font-size: 0.85rem; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: 0 0 12px; }
 </style>
 
@@ -207,11 +209,46 @@ pre { font-family: var(--mono); font-size: 0.85rem; background: var(--surface); 
   </section>
 
   <section>
-    <h2>What this means in practice</h2>
+    <h2>Which one for which job</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>You want to…</th><th>Tool</th><th>Type this</th></tr></thead>
+        <tbody>
+          <tr><th>Hear Claude's answer while you look at another window</th><td class="sc">speak-claude</td><td>Nothing. It speaks after every reply.</td></tr>
+          <tr><th>Hear the last reply again because you missed part</th><td class="sc">speak-claude</td><td><code>! vo a</code></td></tr>
+          <tr><th>Stop it mid-sentence</th><td class="sc">speak-claude</td><td><code>! vo s</code>, or just send your next message</td></tr>
+          <tr><th>Pause, then carry on</th><td class="sc">speak-claude</td><td><code>! vo p</code> then <code>! vo r</code></td></tr>
+          <tr><th>Keep this Claude session quiet (a call, a meeting)</th><td class="sc">speak-claude</td><td><code>! voice mute here</code>, later <code>! voice unmute here</code></td></tr>
+          <tr><th>Find out why a reply wasn't spoken</th><td class="sc">speak-claude</td><td><code>! voice status</code></td></tr>
+          <tr><th>Read a paper or book chapter and follow along on screen</th><td class="ra">readalong</td><td><code>voice read ~/Downloads/paper.pdf</code></td></tr>
+          <tr><th>Listen to a document with no browser window</th><td class="ra">readalong</td><td><code>voice read notes.md --terminal</code></td></tr>
+          <tr><th>Re-read a page Claude made for you, like this one</th><td class="ra">readalong</td><td><code>voice read docs/speak-claude-and-readalong.html</code> (the diagram is skipped)</td></tr>
+          <tr><th>Start a document over from the top</th><td class="ra">readalong</td><td><code>voice read paper.pdf --start</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="prose">
+    <h2>Using readalong</h2>
+    <p><code>voice read</code> and <code>readalong</code> are the same command. Both always need a file to read, and any options go after the file name:</p>
+<pre>voice read paper.pdf                 # opens a reading page in your browser
+voice read paper.pdf --terminal      # reads in the Terminal instead
+voice read paper.pdf --start         # from the beginning, not where you stopped
+voice read paper.pdf --speed 1.3     # 0.5 to 2.0, remembered next time
+voice read paper.pdf --voice am_fenrir
+readalong voices                     # list the voices
+voice read --help                    # all of the above</pre>
+    <p>While it reads: <code>space</code> pauses, <code>b</code> goes back about a minute, the arrow keys move a sentence, <code>+</code> and <code>−</code> change speed, <code>t</code> shows the contents, <code>f</code> dims everything but the current sentence, <code>esc</code> stops. It remembers your place, so the next time you open the same file it offers to carry on.</p>
+    <p class="callout"><strong>Common mix-up:</strong> <code>voice read --a</code> doesn't work, because readalong got no file to read. The short letters <code>a</code>, <code>s</code>, <code>p</code>, <code>r</code> belong to speak-claude and go straight after <code>voice</code>: <code>vo a</code> repeats Claude's last reply.</p>
+  </section>
+
+  <section>
+    <h2>Good to know</h2>
     <div class="points">
-      <div class="point"><h3>Use speak-claude for</h3><p>Listening to Claude while you look at something else. It runs on its own; you never start it.</p></div>
-      <div class="point"><h3>Use readalong for</h3><p>Reading a paper, a chapter or your notes, and following along on screen.</p></div>
-      <div class="point"><h3>Rebuilding speak-claude elsewhere</h3><p>The rebuild prompt doesn't need readalong. Without it, <code>voice read</code> just prints where to get it.</p></div>
+      <div class="point"><h3>Inside Claude Code, start with !</h3><p>Typing <code>! vo s</code> runs the command right away. Without the <code>!</code>, the words are sent to Claude as a message.</p></div>
+      <div class="point"><h3>Without readalong</h3><p>speak-claude works fine on its own. <code>voice read</code> then just prints where to get readalong.</p></div>
+      <div class="point"><h3>Silent from the start</h3><p>Start Claude Code with <code>SPEAK=0 claude</code> and that session never speaks.</p></div>
     </div>
   </section>
 </main>
