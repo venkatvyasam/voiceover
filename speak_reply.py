@@ -97,6 +97,47 @@ def drop_foreign_scripts(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
+PATH_RE = re.compile(
+    r"""(?<![\w/:~.-])                                       # not already inside a URL or token
+        (?P<path>(?:~|\.{1,2})?/[\w.~+-]+(?:/[\w.~+-]+)+/?    # /a/b/c, ~/a/b, ./a/b
+                 |[\w+-]+(?:/[\w.+-]+)+/?)                    # a/b, a/b/c
+        (?<![.-])                                            # leave a sentence's full stop behind
+        (?::(?P<line>\d+(?:-\d+)?))?                          # file.py:120, file.py:120-125
+    """,
+    re.X,
+)
+EXT_RE = re.compile(r"\.[A-Za-z]\w{0,4}$")
+
+
+def shorten_paths(s: str) -> str:
+    """A path read out in full is unlistenable; say the name on the end of it instead.
+
+    "/Users/x/claude_projects/iceberg-internals/spec/notes/_TEMPLATE.md:12" becomes
+    "the file template, line 12". A name that is a hash, or otherwise nothing a
+    voice can say, becomes "this path". Anything that only looks like a path, such
+    as "and/or" or "24/7/365", is left exactly as it was.
+    """
+    def spoken(m: re.Match) -> str:
+        path = m.group("path")
+        name = path.rstrip("/").rsplit("/", 1)[-1]
+        parts = path.strip("/").split("/")
+        looks_like_one = path[0] in "~./" or len(parts) > 2 or EXT_RE.search(name)
+        kind = "the file" if EXT_RE.search(name) or name.startswith(".") else "the folder"
+        name = EXT_RE.sub("", name.lstrip("."))               # watch.py -> watch
+        name = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", name)      # RootManifestFile -> Root Manifest File
+        name = re.sub(r"_+|(?<!\d)-|-(?!\d)", " ", name)      # spec__main -> spec main, 2026-10-22 kept
+        name = re.sub(r"\s+", " ", name).strip()
+        name = " ".join(w.lower() if w.isupper() and len(w) > 1 else w
+                        for w in name.split())      # DIRECTION -> direction, said not spelled
+        if not looks_like_one or not re.search(r"[A-Za-z]", name):
+            return m.group(0)                                 # not a path at all; say it as written
+        sayable = len(name.split()) <= 6 and not re.fullmatch(r"[0-9a-f]{8,}", name)
+        said = f"{kind} {name}" if sayable else "this path"
+        return f"{said}, line {m.group('line')}" if m.group("line") else said
+
+    return PATH_RE.sub(spoken, s)
+
+
 def say_powers(s: str) -> str:
     """The voice reads "m²" as "m two"; say it the way people do."""
     return s.replace("²", " squared").replace("³", " cubed")
@@ -125,7 +166,7 @@ def speakable(text: str) -> str | None:
             continue
         # Strip list markers so "- foo" reads as "foo", not "dash foo".
         lines = [re.sub(r"^\s*(?:[-*+]|\d+\.)\s+", "", ln) for ln in lines]
-        out = say_powers(drop_foreign_scripts(strip_markdown(" ".join(lines))))
+        out = say_powers(drop_foreign_scripts(shorten_paths(strip_markdown(" ".join(lines)))))
         kept.append(out if len(out) >= 15 else None)
 
     # A sentence ending in ":" introduces something. If what it introduced was

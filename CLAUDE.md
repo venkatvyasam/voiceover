@@ -7,7 +7,7 @@ The people using this repo are learning (a student, and his family). Explain cha
 
 Two Claude Code hooks, registered in `~/.claude/settings.json` by `setup_hooks.py`:
 
-- **Stop** → `speak_reply.py`: checks the mutes, takes `last_assistant_message` from the hook input, skips replies under `MIN_CHARS`, cleans the text for speech (`speakable()` drops code blocks, tables, headings and `>` quotes; `drop_foreign_scripts()` removes scripts the English voice can only spell out letter by letter, like Arabic or Chinese; `say_powers()` reads m² as "m squared"), stops any older speech, starts `speak.py` detached, logs the decision to `speak.log`.
+- **Stop** → `speak_reply.py`: checks the mutes, takes `last_assistant_message` from the hook input, skips replies under `MIN_CHARS`, cleans the text for speech (`speakable()` drops code blocks, tables, headings and `>` quotes; `shorten_paths()` says a long path as the name on the end of it; `drop_foreign_scripts()` removes scripts the English voice can only spell out letter by letter, like Arabic or Chinese; `say_powers()` reads m² as "m squared"), stops any older speech, starts `speak.py` detached, logs the decision to `speak.log`.
 - **UserPromptSubmit** → `voice --on-prompt`: stops speech when the user sends a message, unless the message is itself a voice command (starts with `voice` or `vo`).
 
 `speak.py` splits text into chunks that grow by at most `GROWTH` (1.8x), generates the next chunk while the current one plays through `afplay`, and saves `last.txt` / `last.wav` for `voice again`.
