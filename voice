@@ -56,6 +56,8 @@ status() {
   elif [ -n "$pid" ]; then echo "  Playback:      speaking"
   elif [ -n "$gen" ]; then echo "  Playback:      preparing speech"
   else echo "  Playback:      idle"; fi
+  if pgrep -f "$DIR/voice_server.py" >/dev/null; then echo "  Voice engine:  loaded (quick start; quits after 45 minutes unused)"
+  else echo "  Voice engine:  not loaded (the next reply takes ~6s to start)"; fi
   echo "  Voice:         $(sed -n 's/^VOICE = "\([^"]*\)".*/\1/p' "$DIR/speak.py") at $(sed -n 's/^SPEED = \([0-9.]*\).*/\1/p' "$DIR/speak.py")x speed"
   local again; again=$(again_file)
   if [ ! -s "$again" ]; then echo "  Again:         nothing spoken yet"

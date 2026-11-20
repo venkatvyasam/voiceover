@@ -11,6 +11,7 @@ Two Claude Code hooks, registered in `~/.claude/settings.json` by `setup_hooks.p
 - **UserPromptSubmit** → `voice --on-prompt`: stops speech when the user sends a message, unless the message is itself a voice command (starts with `voice` or `vo`).
 
 `speak.py` splits text into chunks that grow by at most `GROWTH` (1.8x), generates the next chunk while the current one plays through `afplay`, and saves `last.txt` / `last.wav` for `voice again`.
+The generating happens in `voice_server.py`, the voice engine: a background process that keeps Kokoro loaded (about 500 MB, no CPU while waiting) and answers over `voice_server.sock`. `speak.py` starts it when it isn't running, and loads Kokoro itself if the engine can't be reached. The engine quits after `IDLE_MINUTES` (45) unused. A warm engine halves the wait for the first sound (about 3s instead of 6s on Venkat's Intel Mac).
 `voice` is the user's control panel (stop, pause, resume, again, mute, status), installed as `voice` and `vo`. `voice help` lists everything.
 `voice read FILE` hands off to the separate `readalong` tool (github.com/venkatvyasam/readalong); reading whole documents lives there, not here.
 
@@ -21,6 +22,8 @@ State outside the repo: `~/.claude/.speak-off` (mute all), `~/.claude/speak-mute
 - **A hook must never block or fail a turn.** `speak_reply.py` detaches `speak.py` and always exits 0, even on exceptions.
 - **`voice --on-prompt` must print nothing.** A UserPromptSubmit hook's output is added to Claude's context.
 - **Pause is `SIGSTOP` on both `afplay` and `speak.py`.** A stopped process can't exit, so anything that kills speech must also send `SIGCONT` (see `stop_all` in `voice`).
+- **The engine's file name must not contain `speak.py`.** `voice stop` kills processes matching that, and the engine should survive a stop.
+- **Speech must still work without the engine.** Every engine failure in `speak.py` falls back to loading Kokoro directly.
 - **Only `setup_hooks.py` edits `~/.claude/settings.json`.** It backs the file up and touches only this tool's hooks.
 - **Use uv, never pip.** `onnxruntime` is pinned to 1.23.2, the last version with Intel Mac builds (it has Apple Silicon builds too). Don't upgrade it.
 - The hooks point at this folder's absolute path. If the folder moves, run `./install.sh` again.
@@ -43,6 +46,7 @@ tail -5 speak.log
 ```
 
 Changes to `speak.py`, `speak_reply.py` and `voice` take effect on the next reply; no restart needed.
+Changes to `voice_server.py` need the running engine stopped first: `pkill -f voice_server.py` (the next reply starts the new one).
 
 ## Working in this repo
 
