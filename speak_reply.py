@@ -143,6 +143,31 @@ def say_powers(s: str) -> str:
     return s.replace("²", " squared").replace("³", " cubed")
 
 
+LIST_MARKER = re.compile(r"^\s*(?:[-*+]|\d+\.)\s+")
+
+
+def join_lines(lines: list[str]) -> str:
+    """Join a block's lines into one run of text, ending each list item with a full stop.
+
+    Without the stop, "- Run the build" and "- Tell me the result" are spoken as one
+    breath: "Run the build Tell me the result". Wrapped lines of a paragraph or of one
+    item are joined with a space, as before.
+    """
+    pieces: list[list] = []                        # [text, is_list_item]
+    for ln in lines:
+        if LIST_MARKER.match(ln):
+            pieces.append([LIST_MARKER.sub("", ln).strip(), True])
+        elif pieces:
+            pieces[-1][0] += " " + ln.strip()      # a wrapped line continues the item or paragraph
+        else:
+            pieces.append([ln.strip(), False])
+    # Look past trailing markdown marks: "**Label:**" already ends in a colon.
+    return " ".join(
+        text + "." if is_item and text and not text.rstrip("*_` ").endswith((".", "!", "?", ":", ";", ",")) else text
+        for text, is_item in pieces
+    )
+
+
 def speakable(text: str) -> str | None:
     """Everything worth hearing: prose and list items, in order.
 
@@ -164,9 +189,9 @@ def speakable(text: str) -> str | None:
         if not lines:
             kept.append(None)                             # table-only block
             continue
-        # Strip list markers so "- foo" reads as "foo", not "dash foo".
-        lines = [re.sub(r"^\s*(?:[-*+]|\d+\.)\s+", "", ln) for ln in lines]
-        out = say_powers(drop_foreign_scripts(shorten_paths(strip_markdown(" ".join(lines)))))
+        # Strip list markers so "- foo" reads as "foo", not "dash foo", and end each
+        # item with a full stop so the items don't run together when spoken.
+        out = say_powers(drop_foreign_scripts(shorten_paths(strip_markdown(join_lines(lines)))))
         kept.append(out if len(out) >= 15 else None)
 
     # A sentence ending in ":" introduces something. If what it introduced was
