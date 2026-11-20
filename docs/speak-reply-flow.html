@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>speak_reply.py in plain terms</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --card: #ffffff; --ink: #1d2430; --muted: #5d6675; --line: #d9d6cd;
+    --accent: #1f5fbf; --accent-soft: #e4edfb; --warn: #8a5a00; --warn-soft: #fbf0d9;
+    --code-bg: #f1efe8; --good: #1c6b43; --good-soft: #e1f2e8; --bad: #9b2c2c; --bad-soft: #f8e3e3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14171c; --card: #1b2028; --ink: #e6e9ee; --muted: #9aa4b2; --line: #333b47;
+      --accent: #6aa3ff; --accent-soft: #1d2d49; --warn: #e3b25c; --warn-soft: #3a2f17;
+      --code-bg: #232a34; --good: #6fcf9a; --good-soft: #17301f; --bad: #f08a8a; --bad-soft: #3b1f1f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14171c; --card: #1b2028; --ink: #e6e9ee; --muted: #9aa4b2; --line: #333b47;
+    --accent: #6aa3ff; --accent-soft: #1d2d49; --warn: #e3b25c; --warn-soft: #3a2f17;
+    --code-bg: #232a34; --good: #6fcf9a; --good-soft: #17301f; --bad: #f08a8a; --bad-soft: #3b1f1f;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 40px 16px 72px; }
+  h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 6px; }
+  h2 { font-size: 1.3rem; margin: 44px 0 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+  h2 .n { color: var(--accent); margin-right: 8px; }
+  p { margin: 0 0 12px; }
+  .sub { color: var(--muted); margin: 0 0 22px; }
+  code { font: 0.88em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--code-bg); padding: 1px 6px; border-radius: 5px; }
+  pre { background: var(--code-bg); padding: 12px 14px; border-radius: 8px; overflow-x: auto; font: 0.84rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; margin: 0; white-space: pre-wrap; }
+  pre code { background: none; padding: 0; }
+  .callout { background: var(--accent-soft); border-left: 4px solid var(--accent); padding: 12px 16px; border-radius: 6px; margin: 16px 0; }
+  .callout.warn { background: var(--warn-soft); border-left-color: var(--warn); }
+  .callout p:last-child { margin-bottom: 0; }
+  .tablewrap { overflow-x: auto; margin: 10px 0 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+  table { border-collapse: collapse; width: 100%; min-width: 540px; font-size: 0.93rem; }
+  th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); background: var(--code-bg); }
+  tr:last-child td { border-bottom: 0; }
+  .tag { display: inline-block; font-size: 0.74rem; font-weight: 600; padding: 1px 8px; border-radius: 99px; white-space: nowrap; }
+  .tag.keep { background: var(--good-soft); color: var(--good); }
+  .tag.drop { background: var(--bad-soft); color: var(--bad); }
+  .chain { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin: 14px 0 6px; }
+  .chain .chip { flex: 1 1 150px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 0.9rem; }
+  .chain .chip b { display: block; font-size: 0.95rem; }
+  .chain .chip.me { background: var(--accent-soft); border-color: var(--accent); }
+  .chain .arr { align-self: center; color: var(--muted); font-size: 1.2rem; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 12px 0; }
+  @media (max-width: 700px) { .cols { grid-template-columns: 1fr; } }
+  .cols h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 0 0 6px; }
+  .spoken { background: var(--good-soft); border: 1px solid var(--good); color: var(--ink); border-radius: 8px; padding: 12px 14px; font-size: 0.98rem; }
+  figure { margin: 18px 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  figcaption { color: var(--muted); font-size: 0.86rem; margin-top: 6px; }
+  svg { width: 100%; height: auto; display: block; }
+  svg text { font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: var(--ink); }
+  svg .sm { font-size: 12px; fill: var(--muted); }
+  svg .yes { font-size: 12px; font-weight: 700; fill: var(--warn); }
+  svg .no { font-size: 12px; font-weight: 700; fill: var(--good); }
+  svg .box { fill: var(--card); stroke: var(--line); stroke-width: 1.5; }
+  svg .hook { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+  svg .gate { fill: var(--warn-soft); stroke: var(--warn); stroke-width: 1.5; }
+  svg .skip { fill: var(--code-bg); stroke: var(--line); stroke-width: 1.5; }
+  svg .note { fill: none; stroke: var(--line); stroke-width: 1.5; stroke-dasharray: 5 4; }
+  svg .arrow { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+  svg .dash { stroke: var(--line); stroke-width: 1.5; stroke-dasharray: 3 3; fill: none; }
+  svg marker path { fill: var(--muted); }
+  footer { margin-top: 48px; color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--line); padding-top: 14px; }
+</style>
+</head>
+<body>
+<main>
+
+<h1><code>speak_reply.py</code> in plain terms</h1>
+<p class="sub">What the hook does after every Claude reply, and the order it does it in. Part of speak-claude. Written 2026-11-16.</p>
+
+<div class="callout">
+  <p><strong>In one sentence:</strong> <code>speak_reply.py</code> is the gatekeeper and editor of the voice-over. After each reply it decides whether the reply should be read aloud, cuts out the parts that sound bad when spoken, hands the rest to <code>speak.py</code>, and leaves. It makes no sound itself.</p>
+</div>
+
+<h2><span class="n">1</span>Where it fits</h2>
+<div class="chain">
+  <div class="chip"><b>Claude Code</b>finishes a reply</div>
+  <div class="arr">&rarr;</div>
+  <div class="chip me"><b>speak_reply.py</b>decides what, if anything, to say</div>
+  <div class="arr">&rarr;</div>
+  <div class="chip"><b>speak.py</b>turns the text into sound</div>
+  <div class="arr">&rarr;</div>
+  <div class="chip"><b>Your speakers</b>play it</div>
+</div>
+<p>It is a <em>Stop hook</em>: a command that Claude Code runs by itself each time a reply is finished. Claude Code hands it a small JSON message that includes the reply text and the session ID.</p>
+
+<h2><span class="n">2</span>The flow</h2>
+<figure>
+<svg viewBox="0 0 880 730" role="img" aria-label="Flowchart of speak_reply.py: three silent-exit checks, cleaning, then starting speak.py and exiting">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z"/></marker>
+  </defs>
+
+  <!-- main column -->
+  <rect class="hook" x="30" y="30" width="380" height="52" rx="8"/>
+  <text x="220" y="52" text-anchor="middle">Claude finishes a reply</text>
+  <text class="sm" x="220" y="70" text-anchor="middle">Claude Code runs the hook and passes JSON on stdin</text>
+
+  <rect class="gate" x="30" y="108" width="380" height="52" rx="8"/>
+  <text x="220" y="130" text-anchor="middle">Muted for everyone?</text>
+  <text class="sm" x="220" y="148" text-anchor="middle">the flag file ~/.claude/.speak-off exists</text>
+
+  <rect class="gate" x="30" y="186" width="380" height="52" rx="8"/>
+  <text x="220" y="208" text-anchor="middle">A quiet session?</text>
+  <text class="sm" x="220" y="226" text-anchor="middle">SPEAK=0, or this session was muted with "mute here"</text>
+
+  <rect class="gate" x="30" y="264" width="380" height="52" rx="8"/>
+  <text x="220" y="286" text-anchor="middle">Too short, or no reply found?</text>
+  <text class="sm" x="220" y="304" text-anchor="middle">under 120 characters</text>
+
+  <rect class="box" x="30" y="342" width="380" height="52" rx="8"/>
+  <text x="220" y="364" text-anchor="middle">Clean the text for the ear</text>
+  <text class="sm" x="220" y="382" text-anchor="middle">covered in section 4</text>
+
+  <rect class="gate" x="30" y="420" width="380" height="52" rx="8"/>
+  <text x="220" y="442" text-anchor="middle">Nothing left to say?</text>
+  <text class="sm" x="220" y="460" text-anchor="middle">only code, tables or headings were there</text>
+
+  <rect class="box" x="30" y="498" width="380" height="52" rx="8"/>
+  <text x="220" y="520" text-anchor="middle">Stop the older speech</text>
+  <text class="sm" x="220" y="538" text-anchor="middle">and save this reply for "vo again"</text>
+
+  <rect class="box" x="30" y="576" width="380" height="52" rx="8"/>
+  <text x="220" y="598" text-anchor="middle">Start speak.py in the background</text>
+  <text class="sm" x="220" y="616" text-anchor="middle">and do not wait for it</text>
+
+  <rect class="box" x="30" y="654" width="380" height="52" rx="8"/>
+  <text x="220" y="676" text-anchor="middle">Exit 0, straight away</text>
+  <text class="sm" x="220" y="694" text-anchor="middle">even if something went wrong</text>
+
+  <!-- down arrows -->
+  <path class="arrow" d="M220 82 V106" marker-end="url(#ah)"/>
+  <path class="arrow" d="M220 160 V184" marker-end="url(#ah)"/><text class="no" x="230" y="177">no</text>
+  <path class="arrow" d="M220 238 V262" marker-end="url(#ah)"/><text class="no" x="230" y="255">no</text>
+  <path class="arrow" d="M220 316 V340" marker-end="url(#ah)"/><text class="no" x="230" y="333">no</text>
+  <path class="arrow" d="M220 394 V418" marker-end="url(#ah)"/>
+  <path class="arrow" d="M220 472 V496" marker-end="url(#ah)"/><text class="no" x="230" y="489">no</text>
+  <path class="arrow" d="M220 550 V574" marker-end="url(#ah)"/>
+  <path class="arrow" d="M220 628 V652" marker-end="url(#ah)"/>
+
+  <!-- yes exits to the right -->
+  <path class="arrow" d="M410 134 H448" marker-end="url(#ah)"/><text class="yes" x="415" y="128">yes</text>
+  <path class="arrow" d="M410 212 H448" marker-end="url(#ah)"/><text class="yes" x="415" y="206">yes</text>
+  <path class="arrow" d="M410 290 H448" marker-end="url(#ah)"/><text class="yes" x="415" y="284">yes</text>
+  <path class="arrow" d="M410 446 H448" marker-end="url(#ah)"/><text class="yes" x="415" y="440">yes</text>
+
+  <rect class="skip" x="450" y="108" width="400" height="52" rx="8"/>
+  <text x="465" y="130">Stays quiet</text><text class="sm" x="465" y="148">logs the reason: all sessions muted</text>
+  <rect class="skip" x="450" y="186" width="400" height="52" rx="8"/>
+  <text x="465" y="208">Stays quiet</text><text class="sm" x="465" y="226">logs the reason: SPEAK=0, or this session muted</text>
+  <rect class="skip" x="450" y="264" width="400" height="52" rx="8"/>
+  <text x="465" y="286">Stays quiet</text><text class="sm" x="465" y="304">logs the reason: reply too short, or no text found</text>
+  <text class="sm" x="450" y="333">No text sent? It reads the end of the transcript first.</text>
+  <rect class="skip" x="450" y="420" width="400" height="52" rx="8"/>
+  <text x="465" y="442">Stays quiet</text><text class="sm" x="465" y="460">logs the reason: nothing speakable</text>
+
+  <!-- side notes -->
+  <path class="dash" d="M410 368 H448"/>
+  <rect class="note" x="450" y="342" width="400" height="52" rx="8"/>
+  <text x="465" y="364">Drops code, tables, headings and quotes</text>
+  <text class="sm" x="465" y="382">Keeps prose and lists. Shortens paths. Caps at 5000 characters.</text>
+
+  <path class="dash" d="M410 524 H448"/>
+  <rect class="note" x="450" y="498" width="400" height="52" rx="8"/>
+  <text x="465" y="520">A new reply replaces the old one</text>
+  <text class="sm" x="465" y="538">The text is saved as last-by-session/&lt;session_id&gt;.txt</text>
+
+  <path class="dash" d="M410 602 H448"/>
+  <rect class="note" x="450" y="576" width="400" height="52" rx="8"/>
+  <text x="465" y="598">Runs detached, so the turn is not held up</text>
+  <text class="sm" x="465" y="616">Its output goes to speak.log</text>
+
+  <path class="dash" d="M410 680 H448"/>
+  <rect class="note" x="450" y="654" width="400" height="52" rx="8"/>
+  <text x="465" y="676">A hook must never block or break a turn</text>
+  <text class="sm" x="465" y="694">Errors are swallowed, and the exit code is always 0</text>
+</svg>
+<figcaption>Yellow boxes are checks. "Yes" sends the reply out to the right and nothing is spoken; "no" lets it continue down. Every quiet exit is written to <code>speak.log</code> with its reason. Dashed boxes are notes about a step.</figcaption>
+</figure>
+
+<h2><span class="n">3</span>The checks, in plain words</h2>
+<ol>
+  <li><strong>Muted for everyone?</strong> <code>vo mute</code> creates one flag file. If it exists, nothing is spoken in any session.</li>
+  <li><strong>A quiet session?</strong> Two ways to get here: you started that session with <code>SPEAK=0 claude</code>, or you ran <code>vo mute here</code>, which leaves a file named after that session's ID.</li>
+  <li><strong>Too short, or no reply?</strong> Claude Code sends the reply text itself. Anything under 120 characters is skipped, because short messages are usually notices such as "Login expired". If an older Claude Code sends no text at all, the hook reads the end of the transcript file (the last 4 MB only) and takes the last long reply from there.</li>
+  <li><strong>Nothing left to say?</strong> After cleaning, a reply made only of code, tables or headings has no words left. It stays quiet instead of reading out nothing.</li>
+</ol>
+<p>The order matters. The cheap checks come first, so a muted session costs almost nothing.</p>
+
+<h2><span class="n">4</span>The cleaning step, with a real example</h2>
+<p>Text that looks fine on a screen often sounds bad aloud. Nobody wants to hear a table read cell by cell. So the hook edits the reply before it goes on. The example below was run through the real cleaning function, <code>speakable()</code>.</p>
+<div class="cols">
+  <div>
+    <h3>What Claude wrote</h3>
+<pre><code>## What I changed
+
+I fixed the **retry bug** in `/Users/venkatvyasam/app/src/watch.py:120` — the tests pass now, all 42 of them.
+
+| file | change |
+|---|---|
+| watch.py | retry limit |
+
+Here is the new check:
+
+```python
+if attempts &gt; 3:
+    raise RetryError
+```
+
+&gt; Note: the old limit was 5.
+
+Next steps:
+
+- Run the full build
+- Tell me if the log still looks noisy
+
+Done.</code></pre>
+  </div>
+  <div>
+    <h3>What gets spoken</h3>
+    <div class="spoken">I fixed the retry bug in the file watch, line 120, the tests pass now, all 42 of them. Run the full build. Tell me if the log still looks noisy.</div>
+  </div>
+</div>
+<div class="tablewrap"><table>
+<thead><tr><th>In the reply</th><th>What happens</th></tr></thead>
+<tbody>
+<tr><td>The heading <code>## What I changed</code></td><td><span class="tag drop">dropped</span> Headings are skipped.</td></tr>
+<tr><td>The sentence with bold, code and a path</td><td><span class="tag keep">kept</span> The marks are removed, the long path becomes "the file watch, line 120", and the dash becomes a comma.</td></tr>
+<tr><td>The table</td><td><span class="tag drop">dropped</span></td></tr>
+<tr><td>"Here is the new check:"</td><td><span class="tag drop">dropped</span> It introduced a code block that was dropped, so the lead-in would hang in the air.</td></tr>
+<tr><td>The code block</td><td><span class="tag drop">dropped</span></td></tr>
+<tr><td>The block quote</td><td><span class="tag drop">dropped</span></td></tr>
+<tr><td>"Next steps:" and "Done."</td><td><span class="tag drop">dropped</span> Any paragraph under 15 characters is skipped.</td></tr>
+<tr><td>The two list items</td><td><span class="tag keep">kept</span> The bullet marks are removed, and each item ends with a full stop so the items don't run together.</td></tr>
+</tbody></table></div>
+<p>The cleaning also removes writing the English voice would spell out letter by letter (Arabic or Chinese, for example), and says "m²" as "m squared". Anything over 5000 characters is cut at a sentence end.</p>
+
+<h2><span class="n">5</span>What it writes down</h2>
+<p>Every decision, spoken or skipped, becomes one line in <code>speak.log</code>. <code>vo status</code> shows the latest one, which is the fastest way to find out why a reply was silent.</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Log line</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>spoke 1041 chars (payload): 'Yes, the tool already...'</code></td><td>It handed the text to <code>speak.py</code>. "payload" means the reply came from Claude Code; "transcript" means the fallback was used.</td></tr>
+<tr><td><code>skipped: all sessions muted</code></td><td>The global flag file exists.</td></tr>
+<tr><td><code>skipped: session started with SPEAK=0</code></td><td>That session was launched silent.</td></tr>
+<tr><td><code>skipped: this session muted</code></td><td><code>vo mute here</code> was used.</td></tr>
+<tr><td><code>skipped: reply too short (N chars, minimum 120)</code></td><td>Under the 120-character floor.</td></tr>
+<tr><td><code>skipped: no reply text and no transcript</code> or <code>no reply text found</code></td><td>Nothing usable arrived.</td></tr>
+<tr><td><code>skipped: nothing speakable (only code, tables or headings)</code></td><td>Cleaning left no words.</td></tr>
+<tr><td><code>skipped: unreadable hook input</code></td><td>The JSON from Claude Code could not be read.</td></tr>
+</tbody></table></div>
+
+<h2><span class="n">6</span>Three rules it keeps</h2>
+<ul>
+  <li><strong>Never hold up Claude.</strong> The speech runs in its own detached process, and the hook exits at once.</li>
+  <li><strong>Never break a turn.</strong> Every path ends in exit 0, even after an error. A broken voice must not break your work.</li>
+  <li><strong>Never read the whole transcript.</strong> Transcripts can pass 100 MB, so the fallback reads only the last 4 MB.</li>
+</ul>
+
+<h2><span class="n">7</span>Worth knowing</h2>
+<ul>
+  <li><strong>Short answers are silent.</strong> The 120-character floor keeps notices quiet, and also silences a genuinely short reply.</li>
+  <li><strong>The newest reply wins.</strong> Before starting, the hook stops any speech still running, from any session.</li>
+  <li><strong>It only decides.</strong> Voice, speed and chunking live in <code>speak.py</code>. Stopping, pausing and muting live in the <code>vo</code> script.</li>
+</ul>
+
+<h2><span class="n">8</span>Try it without speaking</h2>
+<p>From the speak-claude folder, this prints what <em>would</em> be spoken and makes no sound and no log line:</p>
+<pre><code>echo '{"session_id":"test","last_assistant_message":"&lt;a reply of 120 or more characters&gt;"}' \
+  | .venv/bin/python speak_reply.py --dry-run</code></pre>
+<p style="margin-top:12px">The dry run still obeys the mute switches. If it prints nothing, run <code>vo status</code> first: a global mute produces silence here too.</p>
+
+<footer>Source: <code>speak_reply.py</code> (249 lines), read in full on 2026-11-16, and the cleaning example was produced by calling its <code>speakable()</code> function. Nothing in the file was changed. For the wider design, see <a href="vo-design.html">vo-design.html</a>.</footer>
+</main>
+</body>
+</html>
