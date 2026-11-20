@@ -56,6 +56,7 @@ This removes the hooks and the `voice` / `vo` commands. Delete the folder to rem
 |---|---|
 | `speak_reply.py` | Claude Code **Stop hook**: picks the text to read and starts `speak.py` |
 | `speak.py` | turns text into speech with Kokoro and plays it in chunks |
+| `voice_server.py` | the voice engine: keeps the voice loaded so replies start in about half the time; quits after 45 minutes unused |
 | `voice` | the controls (installed as `voice` and `vo`), plus the **UserPromptSubmit hook** that stops speech when you send a message |
 | `setup_hooks.py` | adds or removes the two hooks in `~/.claude/settings.json` (backs it up first) |
 | `install.sh` / `uninstall.sh` | setup and removal |

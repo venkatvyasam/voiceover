@@ -50,6 +50,8 @@ esac
 step "Registering the Claude Code hooks"
 "$DIR/.venv/bin/python" "$DIR/setup_hooks.py" install
 
+pkill -f "$DIR/voice_server.py" 2>/dev/null || true   # an engine left running uses the old code; the test below starts a fresh one
+
 step "Testing the voice (you should hear a short sentence)"
 "$DIR/.venv/bin/python" "$DIR/speak.py" "Hello! The Claude Code voice-over is installed."
 
