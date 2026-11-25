@@ -10,7 +10,8 @@ Two Claude Code hooks, registered in `~/.claude/settings.json` by `setup_hooks.p
 - **Stop** → `speak_reply.py`: checks the mutes, takes `last_assistant_message` from the hook input, skips replies under `MIN_CHARS`, cleans the text for speech (`speakable()` drops code blocks, tables, headings and `>` quotes; `shorten_paths()` says a long path as the name on the end of it; `drop_foreign_scripts()` removes scripts the English voice can only spell out letter by letter, like Arabic or Chinese; `say_powers()` reads m² as "m squared"), stops any older speech, starts `speak.py` detached, logs the decision to `speak.log`.
 - **UserPromptSubmit** → `voice --on-prompt`: stops speech when the user sends a message, unless the message is itself a voice command (starts with `voice` or `vo`).
 
-`speak.py` splits text into chunks that grow by at most `GROWTH` (1.8x), generates the next chunk while the current one plays through `afplay`, and saves `last.txt` / `last.wav` for `voice again`.
+`speak.py` splits text into chunks that grow by at most `GROWTH` (1.8x), generates the next chunk while the current one plays, and saves `last.txt` / `last.wav` for `voice again`. It plays the sound itself through `sounddevice` (the `Player` class): the chunks go into one queue that the sound card reads from, so they play back to back with no gap, and pause holds the exact place. `speak.py --play FILE` plays a saved recording the same way (`voice again` uses it). `speak.state` tells `voice status` whether it's preparing, speaking or paused.
+It used to play through the Mac's `afplay`, which had two problems: it runs about a second after its sound ends (a silence between every chunk), and pausing it with `SIGSTOP` skipped ahead on resume, because the Mac's sound clock kept running.
 The generating happens in `voice_server.py`, the voice engine: a background process that keeps Kokoro loaded (about 500 MB, no CPU while waiting) and answers over `voice_server.sock`. `speak.py` starts it when it isn't running, and loads Kokoro itself if the engine can't be reached. The engine quits after `IDLE_MINUTES` (45) unused. A warm engine halves the wait for the first sound (about 3s instead of 6s on Venkat's Intel Mac).
 `voice` is the user's control panel (stop, pause, resume, again, mute, status), installed as `voice` and `vo`. `voice help` lists everything.
 `voice read FILE` hands off to the separate `readalong` tool (github.com/venkatvyasam/readalong); reading whole documents lives there, not here.
@@ -21,7 +22,7 @@ State outside the repo: `~/.claude/.speak-off` (mute all), `~/.claude/speak-mute
 
 - **A hook must never block or fail a turn.** `speak_reply.py` detaches `speak.py` and always exits 0, even on exceptions.
 - **`voice --on-prompt` must print nothing.** A UserPromptSubmit hook's output is added to Claude's context.
-- **Pause is `SIGSTOP` on both `afplay` and `speak.py`.** A stopped process can't exit, so anything that kills speech must also send `SIGCONT` (see `stop_all` in `voice`).
+- **Pause is `SIGUSR1` to `speak.py`, resume is `SIGUSR2`.** Not `SIGSTOP`: that skips audio on resume. `speak.py` sets its signal handlers before its slow imports, because an unhandled `SIGUSR1` kills a process, and `voice pause` may arrive while it is still starting.
 - **The engine's file name must not contain `speak.py`.** `voice stop` kills processes matching that, and the engine should survive a stop.
 - **Speech must still work without the engine.** Every engine failure in `speak.py` falls back to loading Kokoro directly.
 - **Only `setup_hooks.py` edits `~/.claude/settings.json`.** It backs the file up and touches only this tool's hooks.

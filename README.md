@@ -31,7 +31,8 @@ Type these in a terminal, or in Claude Code with a `!` in front (`! voice pause`
 | `voice pause` / `voice resume` (`vo p` / `vo r`) | pause / resume |
 | `voice again` (`vo a`) | say this session's last reply again (outside Claude Code: the last reply from any session) |
 | `vo +.2` / `vo -.1` | speak faster / slower by that much; remembered, and heard once the chunk playing now ends |
-| `vo 1.3` | set the speed directly (0.5 to 2; the default is 1.1) |
+| `vo 1.3` | set the speed directly (0.5 to 2) |
+| `vo reset` | speed back to the default (1.1) |
 | `voice status` | what's muted or playing, and why the last reply was spoken or skipped |
 | `voice mute` / `voice unmute` | mute / unmute every session |
 | `voice mute here` / `voice unmute here` | mute / unmute only the current Claude Code session |

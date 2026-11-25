@@ -18,3 +18,4 @@ voice_server.lock
 # Kokoro model files (~337 MB), downloaded by setup
 models/
 speak.log
+speak.state
