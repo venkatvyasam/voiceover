@@ -36,7 +36,7 @@ Type these in a terminal, or in Claude Code with a `!` in front (`! voice pause`
 | `voice status` | what's muted or playing, and why the last reply was spoken or skipped |
 | `voice mute` / `voice unmute` | mute / unmute every session |
 | `voice mute here` / `voice unmute here` | mute / unmute only the current Claude Code session |
-| `voice read FILE` | read a document aloud with [readalong](https://github.com/venkatvyasam/readalong), if it's installed |
+| `voice read FILE` | read a document aloud with [readalong](https://github.com/venkatvyasam/readalong), if it's installed (optional; readalong is private for now, so the link only works if you have access) |
 | `voice help` | help |
 
 Speech stops by itself when you send your next message. Start a silent session with `SPEAK=0 claude`.
@@ -65,3 +65,8 @@ This removes the hooks and the `voice` / `vo` commands. Delete the folder to rem
 | `install.sh` / `uninstall.sh` | setup and removal |
 | `audition.py` | plays voices so you can pick one |
 | `speak.log` | one line per reply: spoken, or skipped and why |
+
+## License
+
+[MIT](LICENSE): use, change and share it freely; keep the copyright notice.
+The Kokoro voice model, downloaded by `install.sh`, has its own license (Apache 2.0).
