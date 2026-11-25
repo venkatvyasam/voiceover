@@ -1,4 +1,4 @@
-# speak-claude
+# voiceover
 
 Claude Code reads its own replies aloud with Kokoro, a free text-to-speech model that runs locally. macOS only.
 The people using this repo are learning (a student, and his family). Explain changes in plain terms and keep the code simple and readable.

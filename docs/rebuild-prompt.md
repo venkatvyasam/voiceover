@@ -1,10 +1,10 @@
-# Prompt: rebuild "speak-claude" from scratch
+# Prompt: rebuild "voiceover" from scratch
 
 Paste everything below the line into Claude Code (in an empty folder, on a Mac).
 
 ---
 
-Build a small macOS tool called **speak-claude** in the current (empty) folder. It makes Claude Code read its own replies aloud using **Kokoro**, a free text-to-speech model that runs locally via `kokoro-onnx`. Follow this spec exactly: file names, constants, regexes, messages and behaviors all matter. Keep the code simple and readable; the users are a student and their family. Use **uv**, never pip. Do not edit `~/.claude/settings.json` by hand: only the `setup_hooks.py` script you write may touch it, and only when `install.sh` runs it.
+Build a small macOS tool called **voiceover** in the current (empty) folder. It makes Claude Code read its own replies aloud using **Kokoro**, a free text-to-speech model that runs locally via `kokoro-onnx`. Follow this spec exactly: file names, constants, regexes, messages and behaviors all matter. Keep the code simple and readable; the users are a student and their family. Use **uv**, never pip. Do not edit `~/.claude/settings.json` by hand: only the `setup_hooks.py` script you write may touch it, and only when `install.sh` runs it.
 
 ## Files to create
 
@@ -35,7 +35,7 @@ README.md  CLAUDE.md  docs/guide.html
 ## pyproject.toml
 ```toml
 [project]
-name = "speak-claude"
+name = "voiceover"
 version = "0.1.0"
 description = "Claude Code reads its replies aloud with a free, local voice (Kokoro)"
 requires-python = ">=3.11"
@@ -297,7 +297,7 @@ Start a silent session:  SPEAK=0 claude
 Plays every voice saying `"<name>. The agent reads the reply, runs the tool, and sends back an observation. Does this voice sound natural to you?"`. Args are voice-name prefixes (default `af_ am_ bf_ bm_`). Voices from `kokoro.get_voices()`, sorted. `lang` = `en-us` for prefix `a`, `en-gb` for `b`. Speed 1.1. Pipeline generation/playback like speak.py and print `NN/total  voice` as each starts.
 
 ## README.md
-Sections: intro (natural voice, free, offline, runs on the Mac with Kokoro, link to kokoro-onnx), pointer to `docs/guide.html`, Requirements (macOS Apple Silicon or Intel, Claude Code, uv, ~500 MB disk), Install (`git clone`, `cd speak-claude`, `./install.sh`), Controls table (every command above, with short forms; note dashes optional and the `!` prefix inside Claude Code), "Speech stops by itself when you send your next message. Start a silent session with `SPEAK=0 claude`.", Change the voice (`.venv/bin/python audition.py af_ am_` or `bf_ bm_`, then edit `VOICE`), Uninstall, Files table (include `voice_server.py`: "the voice engine: keeps the voice loaded so replies start in about half the time; quits after 45 minutes unused").
+Sections: intro (natural voice, free, offline, runs on the Mac with Kokoro, link to kokoro-onnx), pointer to `docs/guide.html`, Requirements (macOS Apple Silicon or Intel, Claude Code, uv, ~500 MB disk), Install (`git clone`, `cd voiceover`, `./install.sh`), Controls table (every command above, with short forms; note dashes optional and the `!` prefix inside Claude Code), "Speech stops by itself when you send your next message. Start a silent session with `SPEAK=0 claude`.", Change the voice (`.venv/bin/python audition.py af_ am_` or `bf_ bm_`, then edit `VOICE`), Uninstall, Files table (include `voice_server.py`: "the voice engine: keeps the voice loaded so replies start in about half the time; quits after 45 minutes unused").
 
 ## CLAUDE.md
 Describe how the pieces fit (the two hooks, what each function in speak_reply.py does, chunking, the voice engine and its fallback, state files `~/.claude/.speak-off`, `~/.claude/speak-muted/<session_id>` and `~/.claude/speak-speed`), list the load-bearing rules above, the testing commands below, a note that changes to `voice_server.py` need the running engine stopped first (`pkill -f voice_server.py`; the next reply starts the new one), and: replies in this repo are read aloud, so prefer short spoken-style paragraphs and put commands/paths/code in code blocks (the voice skips them). Users are learners: explain changes in plain terms.

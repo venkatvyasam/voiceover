@@ -77,7 +77,7 @@
 <main>
 
 <h1><code>speak_reply.py</code> in plain terms</h1>
-<p class="sub">What the hook does after every Claude reply, and the order it does it in. Part of speak-claude. Written 2026-11-16.</p>
+<p class="sub">What the hook does after every Claude reply, and the order it does it in. Part of voiceover. Written 2026-11-16.</p>
 
 <div class="callout">
   <p><strong>In one sentence:</strong> <code>speak_reply.py</code> is the gatekeeper and editor of the voice-over. After each reply it decides whether the reply should be read aloud, cuts out the parts that sound bad when spoken, hands the rest to <code>speak.py</code>, and leaves. It makes no sound itself.</p>
@@ -276,7 +276,7 @@ Done.</code></pre>
 </ul>
 
 <h2><span class="n">8</span>Try it without speaking</h2>
-<p>From the speak-claude folder, this prints what <em>would</em> be spoken and makes no sound and no log line:</p>
+<p>From the voiceover folder, this prints what <em>would</em> be spoken and makes no sound and no log line:</p>
 <pre><code>echo '{"session_id":"test","last_assistant_message":"&lt;a reply of 120 or more characters&gt;"}' \
   | .venv/bin/python speak_reply.py --dry-run</code></pre>
 <p style="margin-top:12px">The dry run still obeys the mute switches. If it prints nothing, run <code>vo status</code> first: a global mute produces silence here too.</p>

@@ -1,4 +1,4 @@
-# speak-claude
+# voiceover
 
 Claude Code reads its replies aloud in a natural voice. It's free, works offline, and runs entirely on your Mac using the [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) text-to-speech model.
 
@@ -15,7 +15,7 @@ Claude Code reads its replies aloud in a natural voice. It's free, works offline
 
 ```bash
 git clone <this repo's URL>
-cd speak-claude
+cd voiceover
 ./install.sh
 ```
 

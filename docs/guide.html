@@ -2,7 +2,7 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>speak-claude Guide</title>
+<title>voiceover Guide</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
@@ -131,7 +131,7 @@ footer { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 18
 <div class="wrap">
   <header class="hero">
     <div class="eyebrow">A Claude Code add-on · macOS</div>
-    <h1>speak-claude</h1>
+    <h1>voiceover</h1>
     <p class="lede">Claude Code reads its replies to you out loud, in a natural voice. Free, offline, and running entirely on your Mac.</p>
     <div class="wave" aria-hidden="true" id="wave"></div>
     <dl class="facts">
@@ -191,8 +191,8 @@ footer { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 18
       <ol class="steps">
         <li>
           <p><strong>Download the code</strong> into a folder in your home directory:</p>
-          <div class="code"><pre><code>gh repo clone venkatvyasam/speak-claude ~/speak-claude
-cd ~/speak-claude</code></pre></div>
+          <div class="code"><pre><code>gh repo clone venkatvyasam/voiceover ~/voiceover
+cd ~/voiceover</code></pre></div>
         </li>
         <li>
           <p><strong>Run the installer.</strong> It takes a few minutes the first time, mostly downloading the voice model.</p>
@@ -259,9 +259,9 @@ cd ~/speak-claude</code></pre></div>
       <p>Claude Code can run your own commands at points in its lifecycle, such as "a reply just finished" or "the user just sent a message". These are called <a href="https://code.claude.com/docs/en/hooks">hooks</a>, and they're listed in <code>~/.claude/settings.json</code>. After installing, yours contains:</p>
       <div class="code"><div class="label">~/.claude/settings.json (excerpt)</div><pre><code>"hooks": {
   "Stop": [{ "hooks": [{ "type": "command",
-    "command": "\"…/speak-claude/.venv/bin/python\" \"…/speak-claude/speak_reply.py\"" }] }],
+    "command": "\"…/voiceover/.venv/bin/python\" \"…/voiceover/speak_reply.py\"" }] }],
   "UserPromptSubmit": [{ "hooks": [{ "type": "command",
-    "command": "\"…/speak-claude/voice\" --on-prompt 2>/dev/null || true" }] }]
+    "command": "\"…/voiceover/voice\" --on-prompt 2>/dev/null || true" }] }]
 }</code></pre></div>
       <p>The two hooks give two paths through the tool:</p>
       <div class="flow" role="img" aria-label="When a reply finishes: Claude Code runs speak_reply.py, which starts speak.py, which makes the audio and plays it. When you send a message: Claude Code runs voice --on-prompt, which stops the old speech.">
@@ -347,7 +347,7 @@ cd ~/speak-claude</code></pre></div>
       <h2><span class="n">08</span>Make it yours</h2>
       <p>All settings are constants at the top of two files. Changes apply from the next reply; no restart needed.</p>
       <h3>Pick a voice</h3>
-      <p>Kokoro has 28 English voices. Hear them all say the same sentence (run inside the speak-claude folder):</p>
+      <p>Kokoro has 28 English voices. Hear them all say the same sentence (run inside the voiceover folder):</p>
       <div class="code"><pre><code>.venv/bin/python audition.py af_ am_      # American women, American men
 .venv/bin/python audition.py bf_ bm_      # British women, British men
 .venv/bin/python audition.py af_heart am_fenrir bm_fable   # compare a few</code></pre></div>
@@ -382,7 +382,7 @@ cd ~/speak-claude</code></pre></div>
 
     <section id="remove">
       <h2><span class="n">10</span>Uninstall</h2>
-      <div class="code"><pre><code>cd ~/speak-claude
+      <div class="code"><pre><code>cd ~/voiceover
 ./uninstall.sh</code></pre></div>
       <p>This removes the two hooks (after backing up your settings) and the <code>voice</code> and <code>vo</code> commands. To remove everything, including the 340 MB model, delete the folder afterwards.</p>
     </section>

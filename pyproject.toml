@@ -1,5 +1,5 @@
 [project]
-name = "speak-claude"
+name = "voiceover"
 version = "0.1.0"
 description = "Claude Code reads its replies aloud with a free, local voice (Kokoro)"
 requires-python = ">=3.11"
