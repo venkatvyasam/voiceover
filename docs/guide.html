@@ -226,6 +226,9 @@ cd ~/speak-claude</code></pre></div>
           <tr><td><code>voice pause</code></td><td><code>vo p</code></td><td>Pause, even before the first sound</td></tr>
           <tr><td><code>voice resume</code></td><td><code>vo r</code></td><td>Continue where it paused</td></tr>
           <tr><td><code>voice again</code></td><td><code>vo a</code></td><td>Say the last reply again (instant)</td></tr>
+          <tr><td><code>voice +.2</code> / <code>voice -.1</code></td><td><code>vo +.2</code></td><td>Speak faster / slower by that much; remembered, heard once the chunk playing now ends</td></tr>
+          <tr><td><code>voice 1.3</code></td><td><code>vo 1.3</code></td><td>Set the speed directly (0.5 to 2)</td></tr>
+          <tr><td><code>voice reset</code></td><td></td><td>Speed back to the default (1.1)</td></tr>
           <tr><td><code>voice status</code></td><td></td><td>What's muted, what's playing, and why the last reply was spoken or skipped</td></tr>
           <tr><td><code>voice mute / unmute</code></td><td></td><td>Mute / unmute every session</td></tr>
           <tr><td><code>! voice mute here / unmute here</code></td><td></td><td>Mute / unmute only the Claude Code session you type it in</td></tr>
@@ -261,7 +264,7 @@ cd ~/speak-claude</code></pre></div>
     "command": "\"…/speak-claude/voice\" --on-prompt 2>/dev/null || true" }] }]
 }</code></pre></div>
       <p>The two hooks give two paths through the tool:</p>
-      <div class="flow" role="img" aria-label="When a reply finishes: Claude Code runs speak_reply.py, which starts speak.py, which plays audio with afplay. When you send a message: Claude Code runs voice --on-prompt, which stops the old speech.">
+      <div class="flow" role="img" aria-label="When a reply finishes: Claude Code runs speak_reply.py, which starts speak.py, which makes the audio and plays it. When you send a message: Claude Code runs voice --on-prompt, which stops the old speech.">
         <div class="lane">
           <div class="tag">When a reply finishes</div>
           <div class="box"><b>Claude Code</b>finishes a reply, runs the Stop hook</div>
@@ -270,7 +273,7 @@ cd ~/speak-claude</code></pre></div>
           <div class="arrow" aria-hidden="true">→</div>
           <div class="box"><b>speak.py</b>Kokoro turns text into audio, chunk by chunk</div>
           <div class="arrow" aria-hidden="true">→</div>
-          <div class="box"><b>afplay</b>macOS plays each chunk</div>
+          <div class="box"><b>your speakers</b>speak.py plays the chunks back to back</div>
         </div>
         <div class="lane">
           <div class="tag">When you send a message</div>
@@ -317,7 +320,8 @@ cd ~/speak-claude</code></pre></div>
       <p class="dim">Rough timing on an Intel laptop. Apple Silicon Macs are faster.</p>
 
       <h3>How pause and stop work</h3>
-      <p>Each chunk plays through <code>afplay</code>, the Mac's built-in audio player. <code>voice pause</code> sends the signal <code>SIGSTOP</code> to both the audio player and the speech generator, which freezes them mid-sound; <code>voice resume</code> sends <code>SIGCONT</code> to unfreeze them. A frozen process can't exit, so <code>voice stop</code> sends both a stop signal and <code>SIGCONT</code>.</p>
+      <p>speak.py plays the sound itself, through a library called <code>sounddevice</code>. The chunks go into one queue that the sound card reads from, so they play back to back with no gap. <code>voice pause</code> sends speak.py a signal (<code>SIGUSR1</code>); its player then sends silence and remembers exactly where it was. <code>voice resume</code> sends another (<code>SIGUSR2</code>) and it carries on from that spot. <code>voice stop</code> ends speak.py, and the sound stops with it.</p>
+      <p>It used to play through <code>afplay</code>, the Mac's built-in audio player, and pause by freezing it. That had two problems: <code>afplay</code> runs about a second after its sound ends, which left a silence between chunks, and a frozen player skipped ahead when unfrozen, because the Mac's sound clock kept running.</p>
 
       <h3>The log</h3>
       <p>Every reply leaves one line in <code>speak.log</code>, in the tool's folder:</p>
@@ -352,7 +356,7 @@ cd ~/speak-claude</code></pre></div>
       <div class="table"><table>
         <thead><tr><th>Setting</th><th>File</th><th>Default</th><th>Controls</th></tr></thead>
         <tbody>
-          <tr><td><code>SPEED</code></td><td>speak.py</td><td>1.1</td><td>Speaking speed; 1.0 is normal</td></tr>
+          <tr><td><code>SPEED</code></td><td>speak.py</td><td>1.1</td><td>Default speaking speed; 1.0 is normal. Change it day to day with <code>vo +.2</code>, <code>vo -.1</code> or <code>vo 1.3</code> instead</td></tr>
           <tr><td><code>MIN_CHARS</code></td><td>speak_reply.py</td><td>120</td><td>Replies shorter than this are skipped</td></tr>
           <tr><td><code>MAX_CHARS</code></td><td>speak_reply.py</td><td>5000</td><td>Longer replies are cut at a sentence end (about 4 to 5 minutes)</td></tr>
         </tbody>
@@ -391,7 +395,7 @@ cd ~/speak-claude</code></pre></div>
         <li><strong>Hear when Claude needs you.</strong> Add a Notification hook that says "Claude needs your input" when it's waiting for permission.<span class="meta">a new hook in settings.json · see the hooks docs</span></li>
         <li><strong>Change voice from the command line.</strong> <code>voice use am_fenrir</code>, stored in a small settings file instead of edited in code.<span class="meta">voice and speak.py</span></li>
         <li><strong>Say "see the code on screen"</strong> where a code block was skipped, so you know something was there.<span class="meta">speak_reply.py · speakable()</span></li>
-        <li><strong>Port it to Linux.</strong> Replace <code>afplay</code> with <code>paplay</code> or <code>aplay</code>.<span class="meta">speak.py and voice</span></li>
+        <li><strong>Port it to Linux.</strong> Playback already works there (<code>sounddevice</code>); the install script and the <code>voice</code> script are the parts that assume macOS.<span class="meta">install.sh and voice</span></li>
       </ul>
     </section>
   </main>
