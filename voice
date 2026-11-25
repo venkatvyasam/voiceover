@@ -5,6 +5,31 @@ DIR=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)   # this repo, even when run
 PY="$DIR/.venv/bin/python"
 LOG="$DIR/speak.log"
 SESSION_MUTE_DIR=~/.claude/speak-muted
+SPEED_FILE=~/.claude/speak-speed
+NUMBER='^[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)$'   # 1.3, +.2, -0.1, 2
+
+# The reading speed: the one saved by `vo 1.3` or `vo +.2`, else the default in speak.py.
+current_speed() {
+  local s; s=$(cat "$SPEED_FILE" 2>/dev/null)
+  [[ "$s" =~ ^[0-9]*\.?[0-9]+$ ]] || s=$(sed -n 's/^SPEED = \([0-9.]*\).*/\1/p' "$DIR/speak.py")
+  echo "$s"
+}
+
+# `vo 1.3` sets the speed; `vo +.2` and `vo -.1` change it by that much. Kokoro accepts 0.5 to 2.
+set_speed() {
+  local old new clamped
+  old=$(current_speed)
+  read -r new clamped < <(awk -v old="$old" -v arg="$1" 'BEGIN {
+    v = (arg ~ /^[+-]/) ? old + arg : arg + 0
+    c = (v < 0.5 || v > 2) ? 1 : 0
+    if (v < 0.5) v = 0.5; if (v > 2) v = 2
+    s = sprintf("%.2f", v); sub(/0+$/, "", s); sub(/\.$/, "", s)
+    print s, c }')
+  echo "$new" > "$SPEED_FILE"
+  rm -f "$DIR/last.wav"   # the saved audio is at the old speed, so `voice again` makes it fresh at the new one
+  if [ "$clamped" = 1 ]; then echo "speed ${new}x (was ${old}x; the range is 0.5 to 2)"
+  else echo "speed ${new}x (was ${old}x)"; fi
+}
 
 # What `voice again` repeats: inside Claude Code, that session's last spoken reply; elsewhere, the last from any session.
 again_file() {
@@ -28,6 +53,8 @@ Inside Claude Code, start with !   e.g.  ! voice pause
   voice pause         pause                                    vo p
   voice resume        continue where it paused                 vo r
   voice again         say this session's last reply again      vo a
+  voice +.2           speak faster by 0.2 (use - for slower)   vo -.1
+  voice 1.3           set the speed (0.5 to 2; default 1.1)    vo 1.3
   voice status        what's muted or playing, and why the last reply was spoken or skipped
   voice mute          mute every session
   voice unmute        unmute every session
@@ -58,7 +85,7 @@ status() {
   else echo "  Playback:      idle"; fi
   if pgrep -f "$DIR/voice_server.py" >/dev/null; then echo "  Voice engine:  loaded (quick start; quits after 45 minutes unused)"
   else echo "  Voice engine:  not loaded (the next reply takes ~6s to start)"; fi
-  echo "  Voice:         $(sed -n 's/^VOICE = "\([^"]*\)".*/\1/p' "$DIR/speak.py") at $(sed -n 's/^SPEED = \([0-9.]*\).*/\1/p' "$DIR/speak.py")x speed"
+  echo "  Voice:         $(sed -n 's/^VOICE = "\([^"]*\)".*/\1/p' "$DIR/speak.py") at $(current_speed)x speed  (vo +.2 faster, vo -.1 slower)"
   local again; again=$(again_file)
   if [ ! -s "$again" ]; then echo "  Again:         nothing spoken yet"
   elif saved_audio_matches "$again"; then echo "  Again:         ready, instant"
@@ -73,6 +100,9 @@ status() {
 need_session() {
   [ -n "${CLAUDE_CODE_SESSION_ID:-}" ] || { echo "run this inside Claude Code, with ! in front:  ! voice $1 here"; exit 1; }
 }
+
+# A number is a speed, checked before the dashes below are stripped: "-.1" means slower, not ".1".
+if [[ "${1:-}" =~ $NUMBER ]]; then set_speed "$1"; exit 0; fi
 
 # Accept words or short forms, with or without dashes: "stop", "-stop", "s" all work.
 cmd=$(printf '%s' "${1:-help}" | tr '[:upper:]' '[:lower:]' | sed 's/^-*//')
@@ -115,6 +145,9 @@ case "$cmd" in
   read)        shift   # documents are readalong's job: github.com/venkatvyasam/readalong
                command -v readalong >/dev/null 2>&1 || { echo "voice read needs readalong: github.com/venkatvyasam/readalong"; exit 1; }
                exec readalong "$@" ;;
+  speed)       # "voice speed" shows it; "voice speed 1.3" or "voice speed +.2" changes it
+               if [[ "${2:-}" =~ $NUMBER ]]; then set_speed "$2"
+               else echo "speed $(current_speed)x  (vo +.2 faster, vo -.1 slower, vo 1.1 the default)"; fi ;;
   help|h)      usage ;;
   on-prompt)   # UserPromptSubmit hook: stop the old reply when you send a new message.
                # Silent on purpose: this hook's output would be added to Claude's context.

@@ -12,7 +12,7 @@ for name in voice vo; do
     echo "  removed ~/.local/bin/$name"
   fi
 done
-rm -f ~/.claude/.speak-off
+rm -f ~/.claude/.speak-off ~/.claude/speak-speed
 rm -rf ~/.claude/speak-muted
 
 echo

@@ -15,7 +15,7 @@ The generating happens in `voice_server.py`, the voice engine: a background proc
 `voice` is the user's control panel (stop, pause, resume, again, mute, status), installed as `voice` and `vo`. `voice help` lists everything.
 `voice read FILE` hands off to the separate `readalong` tool (github.com/venkatvyasam/readalong); reading whole documents lives there, not here.
 
-State outside the repo: `~/.claude/.speak-off` (mute all), `~/.claude/speak-muted/<session_id>` (mute one session).
+State outside the repo: `~/.claude/.speak-off` (mute all), `~/.claude/speak-muted/<session_id>` (mute one session), `~/.claude/speak-speed` (reading speed set with `vo 1.3`, `vo +.2` or `vo -.1`; `speak.py` reads it for every chunk, so a change is heard once the chunk playing now ends; without it, `SPEED` in `speak.py` is used).
 
 ## Rules that must not break
 

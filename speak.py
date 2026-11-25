@@ -18,7 +18,8 @@ import soundfile as sf
 
 HERE = Path(__file__).parent
 VOICE = "af_heart"  # Venkat's picks, in order: af_heart, am_fenrir, bm_fable (hear them: audition.py af_heart am_fenrir bm_fable)
-SPEED = 1.1
+SPEED = 1.1        # the default; `vo 1.3`, `vo +.2` or `vo -.1` saves a different one in SPEED_FILE
+SPEED_FILE = Path.home() / ".claude" / "speak-speed"
 FIRST_CHUNK_CHARS = 80  # short first chunk = quick first sound
 CHUNK_CHARS = 250  # largest chunk
 GROWTH = 1.8       # each chunk is generated while the previous one plays, and generation runs
@@ -62,19 +63,27 @@ def start_engine():
     return False
 
 
-def make_wav(chunk):
-    """Turn one chunk of text into a WAV file, through the engine when possible."""
+def speed():
+    """The speed set with `vo`, else SPEED. Read for every chunk, so a change is heard once the current chunk ends."""
+    try:
+        return min(2.0, max(0.5, float(SPEED_FILE.read_text())))
+    except (OSError, ValueError):
+        return SPEED
+
+
+def make_wav(chunk, rate):
+    """Turn one chunk of text into a WAV file at speed `rate`, through the engine when possible."""
     global local_kokoro
     if local_kokoro is None:
         try:
             with socket.socket(socket.AF_UNIX) as s:
                 s.settimeout(60)
                 s.connect(str(SOCKET))
-                s.sendall(json.dumps({"text": chunk, "voice": VOICE, "speed": SPEED}).encode() + b"\n")
+                s.sendall(json.dumps({"text": chunk, "voice": VOICE, "speed": rate}).encode() + b"\n")
                 return json.loads(s.makefile().readline())["wav"]
         except (OSError, ValueError, KeyError):
             local_kokoro = load_kokoro()  # the engine went away: finish this reply the old way
-    samples, sample_rate = local_kokoro.create(chunk, voice=VOICE, speed=SPEED, lang="en-us")
+    samples, sample_rate = local_kokoro.create(chunk, voice=VOICE, speed=rate, lang="en-us")
     wav = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
     sf.write(wav, samples, sample_rate)
     return wav
@@ -98,12 +107,16 @@ def speak(text):
     player = None
     recording = []
     for chunk in chunks(text):
-        wav = make_wav(chunk)
-        samples, sample_rate = sf.read(wav, dtype="float32")
-        recording.append(samples)
+        rate = speed()
+        wav = make_wav(chunk, rate)
         if player:
             player.wait()
             Path(player.args[1]).unlink()
+        if speed() != rate:  # `vo +.2` while the last chunk played: remake this one so the change is heard now
+            Path(wav).unlink()
+            wav = make_wav(chunk, speed())
+        samples, sample_rate = sf.read(wav, dtype="float32")
+        recording.append(samples)
         player = subprocess.Popen(["afplay", wav])
     if recording:
         sf.write(HERE / "last.tmp.wav", np.concatenate(recording), sample_rate)
