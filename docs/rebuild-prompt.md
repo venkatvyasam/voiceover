@@ -10,7 +10,7 @@ Build a small macOS tool called **speak-claude** in the current (empty) folder. 
 
 ```
 .gitignore  .python-version  pyproject.toml  install.sh  uninstall.sh
-setup_hooks.py  speak.py  speak_reply.py  voice  audition.py
+setup_hooks.py  speak.py  voice_server.py  speak_reply.py  voice  audition.py
 README.md  CLAUDE.md  docs/guide.html
 ```
 
@@ -24,6 +24,8 @@ README.md  CLAUDE.md  docs/guide.html
 4. Only `setup_hooks.py` edits `~/.claude/settings.json`; it backs the file up first and touches only this tool's hooks.
 5. `onnxruntime` is pinned to `==1.23.2` (last version with Intel Mac wheels; has Apple Silicon wheels too). Never upgrade it.
 6. Hooks use this folder's **absolute path**. If the folder moves, `./install.sh` must be re-run.
+7. The voice engine's file name (`voice_server.py`) must **not contain `speak.py`**: `voice stop` kills processes matching `speak.py`, and the engine must survive a stop.
+8. Speech must **still work without the engine**. Every engine failure in `speak.py` falls back to loading Kokoro directly.
 
 ## .python-version
 ```
@@ -48,7 +50,7 @@ Run `uv lock` to produce `uv.lock`.
 
 ## .gitignore
 Standard Python ignores (`__pycache__/`, `*.py[oc]`, `build/`, `dist/`, `wheels/`, `*.egg-info`, `.venv`) plus:
-`last.txt`, `last.wav`, `last-by-session/`, `last.tmp.wav`, `models/` (comment: Kokoro model files ~337 MB, downloaded by setup), `speak.log`.
+`last.txt`, `last.wav`, `last-by-session/`, `last.tmp.wav`, `voice_server.sock`, `voice_server.lock`, `models/` (comment: Kokoro model files ~337 MB, downloaded by setup), `speak.log`.
 
 ## install.sh (bash, `set -euo pipefail`, idempotent: "Safe to run again: it updates in place")
 - `DIR` = absolute folder of the script. Helper `step()` prints `\n==> <msg>`.
@@ -58,11 +60,12 @@ Standard Python ignores (`__pycache__/`, `*.py[oc]`, `build/`, `dist/`, `wheels/
 - Step "Downloading the Kokoro voice model (about 340 MB, first time only)": into `$DIR/models/`, from base URL `https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0`, files `kokoro-v1.0.onnx` and `voices-v1.0.bin`. Skip a file if it exists and is non-empty (print "already downloaded"); otherwise `curl -fL --progress-bar` to `<file>.part` then `mv` into place (so an interrupted download never looks complete).
 - Step "Making the 'voice' command (and its short form 'vo') available": `mkdir -p ~/.local/bin`; for `voice` and `vo`, symlink `~/.local/bin/<name>` -> `$DIR/voice` with `ln -sf`, unless that path exists and points somewhere else (then print "skipped <name>: ... belongs to something else"). Also remove a legacy `~/.local/bin/shush` symlink if it is dangling or points at `$DIR/shush`. If `~/.local/bin` is not in `$PATH`, print the one-liner to add `export PATH="$HOME/.local/bin:$PATH"` to `~/.zshrc`.
 - Step "Registering the Claude Code hooks": `"$DIR/.venv/bin/python" "$DIR/setup_hooks.py" install`.
+- Then `pkill -f "$DIR/voice_server.py" 2>/dev/null || true` (an engine left running uses the old code; the test below starts a fresh one).
 - Step "Testing the voice (you should hear a short sentence)": `speak.py "Hello! The Claude Code voice-over is installed."`
 - Finish with: "Done. Start a new Claude Code session and ask something: the reply will be read aloud." and "Controls: run 'voice help'."
 
 ## uninstall.sh (bash, `set -euo pipefail`)
-Run `"$DIR/voice" stop` (ignore errors), `setup_hooks.py uninstall`, remove `~/.local/bin/voice` and `vo` only if they point at `$DIR/voice`, `rm -f ~/.claude/.speak-off`, `rm -rf ~/.claude/speak-muted`. Print that the folder (with the 340 MB model) is left in place and can be deleted.
+Run `"$DIR/voice" stop` (ignore errors), `pkill -f "$DIR/voice_server.py"` (ignore errors; unloads the voice engine), `setup_hooks.py uninstall`, remove `~/.local/bin/voice` and `vo` only if they point at `$DIR/voice`, `rm -f ~/.claude/.speak-off`, `rm -rf ~/.claude/speak-muted`. Print that the folder (with the 340 MB model) is left in place and can be deleted.
 
 ## setup_hooks.py
 Usage `setup_hooks.py install|uninstall` (otherwise `sys.exit(__doc__)`).
@@ -86,16 +89,36 @@ CHUNK_CHARS = 250       # largest chunk
 GROWTH = 1.8            # next chunk is generated while the previous one plays; generation is ~2.2x
                         # faster than speech, so a chunk under ~2x the previous one is ready in time
 MIN_CHUNK = 40          # don't end a chunk on a tiny sentence like "Done."
+SOCKET = HERE / "voice_server.sock"
+local_kokoro = None     # set only when the engine can't be used
 ```
+Import `kokoro_onnx` **only inside `load_kokoro()`** (it takes about a second to import, and the engine usually makes it unnecessary). `load_kokoro()` returns `Kokoro("models/kokoro-v1.0.onnx", "models/voices-v1.0.bin")` (paths relative to the script folder).
 `chunks(text)`: split into sentences with `re.split(r"(?<=[.!?:])\s+", text.strip())`. Start with `limit = FIRST_CHUNK_CHARS`. A sentence longer than `limit` is split further with `re.split(r"(?<=[,;])\s+", sentence)`. For each piece: if `len(cur) >= MIN_CHUNK and len(cur) + len(piece) > limit`, emit `cur`, set `limit = min(CHUNK_CHARS, max(FIRST_CHUNK_CHARS, int(len(cur) * GROWTH)))`, reset `cur`. Then `cur = f"{cur} {piece}".strip()`. Return remaining `cur` too.
+
+`engine_ready()`: try to connect a Unix socket (`AF_UNIX`) to `SOCKET` and close it at once; return True if that worked, False on `OSError`.
+
+`start_engine()`: `Popen([sys.executable, HERE/"voice_server.py"], stdout/stderr = speak.log opened "ab", stdin=DEVNULL, start_new_session=True)`, then poll `engine_ready()` every 0.1 s for up to 30 s (loading usually takes about 5). Return True once ready, else False.
+
+`make_wav(chunk)` (returns a WAV file path): if `local_kokoro` is None, connect to `SOCKET` with a 60 s timeout, send one line `json.dumps({"text": chunk, "voice": VOICE, "speed": SPEED}) + "\n"`, read one line back and return its `"wav"`. On `OSError`, `ValueError` or `KeyError`, set `local_kokoro = load_kokoro()` (the engine went away: finish this reply the old way) and continue. With `local_kokoro`: `create(chunk, voice=VOICE, speed=SPEED, lang="en-us")`, write to a `NamedTemporaryFile(suffix=".wav", delete=False)` with soundfile, return its path.
 
 `speak(text)`:
 1. Delete `last.wav` (missing_ok), write `last.txt` = text.
-2. Load `Kokoro("models/kokoro-v1.0.onnx", "models/voices-v1.0.bin")` (paths relative to the script folder).
+2. `if not (engine_ready() or start_engine()): local_kokoro = load_kokoro()`.
 3. `pkill -x afplay` then `pkill -CONT -x afplay` (stop an old reply, even a paused one).
-4. For each chunk: `kokoro.create(chunk, voice=VOICE, speed=SPEED, lang="en-us")`, append samples to a recording list, write to a `NamedTemporaryFile(suffix=".wav", delete=False)` with soundfile; if a previous `afplay` player exists, `wait()` for it and delete its wav; then `Popen(["afplay", wav])`. This pipelines generation of chunk N+1 with playback of chunk N.
+4. For each chunk: `wav = make_wav(chunk)`, read it back with `sf.read(wav, dtype="float32")` and append the samples to a recording list; if a previous `afplay` player exists, `wait()` for it and delete its wav; then `Popen(["afplay", wav])`. This pipelines generation of chunk N+1 with playback of chunk N.
 5. After all chunks are generated: write the concatenated recording (numpy) to `last.tmp.wav` and `rename` it to `last.wav` (atomic, so `voice again` never plays a half-written or mismatched file).
 6. Wait for the final player and delete its temp wav.
+
+## voice_server.py (the voice engine)
+A background process that keeps Kokoro loaded between replies, so speech starts in about half the time (measured on an Intel Mac: about 3 s to the first sound instead of about 6 s). While waiting it uses no CPU and about 500 MB of memory. Its docstring must say its name must not contain `speak.py`, and why.
+```python
+SOCKET = HERE / "voice_server.sock"
+LOCK = HERE / "voice_server.lock"
+IDLE_MINUTES = 45
+```
+- `log(msg)`: print `f"\n=== {time.ctime()} [engine] {msg}"` with `flush=True` (stdout goes to speak.log). Use `===`, **not** `---`: `voice status` reads the last `---` line as the last reply's decision.
+- `serve(conn, kokoro)`: `conn.settimeout(10)`, read one line; if it's empty, return (that's `engine_ready()` checking). Otherwise parse the JSON, run `kokoro.create(text, voice=..., speed=..., lang="en-us")`, write a temp WAV (`delete=False`) and send back `json.dumps({"wav": path}) + "\n"`. If sending fails with `OSError`, delete the WAV (speak.py was stopped; nobody will play it) and re-raise.
+- `main()`: open `LOCK` and take `fcntl.flock(LOCK_EX | LOCK_NB)`; on `BlockingIOError` return (another engine is already running). Load Kokoro (do **not** run a warm-up sentence: the first real request warms it, and a warm-up only delays the first reply). Unlink a stale `SOCKET`, bind an `AF_UNIX` socket there, `listen()`, `settimeout(60)` so it wakes once a minute to check the idle clock. Log `voice engine ready (quits after 45 minutes unused)`. Loop while less than `IDLE_MINUTES` have passed since the last request: `accept()` (continue on `socket.timeout`), call `serve` inside `with conn:`, log `request failed: <repr>` on any exception, then reset the idle clock. After the loop log `voice engine quit after 45 minutes unused`. In a `finally`, unlink `SOCKET`.
 
 ## speak_reply.py (the Stop hook)
 Module docstring explains: Claude Code runs it after each reply, passing JSON on stdin with `last_assistant_message` and `session_id`; never block, never break a turn, never read the whole transcript (can exceed 100 MB, only its tail as fallback). Supports `--dry-run` (prints the speech text, does not speak or log).
@@ -156,9 +179,15 @@ return re.sub(r"\s+", " ", s).strip()
 
 `say_powers(s)`: replace `²` with `" squared"` and `³` with `" cubed"`.
 
+`join_lines(lines) -> str`: join a block's lines into one run of text, ending each list item with a full stop. Without it, "- Run the build" and "- Tell me the result" are spoken in one breath as "Run the build Tell me the result".
+```python
+LIST_MARKER = re.compile(r"^\s*(?:[-*+]|\d+\.)\s+")
+```
+Walk the lines building `[text, is_list_item]` pieces: a line matching `LIST_MARKER` starts a new item (marker removed, stripped); any other line is appended with a space to the previous piece (a wrapped line continues the item or paragraph), or starts a non-item piece if there is none yet. Join the pieces with spaces, adding `"."` to an item whose text is non-empty and, after stripping trailing `*_` `` ` `` and spaces (so `**Label:**` counts as ending in a colon), does not already end in one of `. ! ? : ; ,`.
+
 `speakable(text) -> str | None`:
 1. Replace fenced code blocks `re.sub(r"```.*?```", "\n\n\x00\n\n", text, flags=re.S)` (a placeholder, so the colon rule below can see that something followed).
-2. Split into blocks on `\n\s*\n`. For each block (stripped): append `None` if empty, the `\x00` placeholder, starts with `#` (heading) or `>` (quote). Drop lines starting with `|` (tables); if no lines remain append `None`. Strip list markers with `re.sub(r"^\s*(?:[-*+]|\d+\.)\s+", "", line)` (lists are kept: often the list is the whole answer). Join lines with spaces and run `say_powers(drop_foreign_scripts(shorten_paths(strip_markdown(joined))))`. Append it if `len >= 15`, else `None`.
+2. Split into blocks on `\n\s*\n`. For each block (stripped): append `None` if empty, the `\x00` placeholder, starts with `#` (heading) or `>` (quote). Drop lines starting with `|` (tables); if no lines remain append `None`. Join the remaining lines with `join_lines(lines)` (below; lists are kept, because often the list is the whole answer) and run `say_powers(drop_foreign_scripts(shorten_paths(strip_markdown(joined))))`. Append it if `len >= 15`, else `None`.
 3. Dangling colons: for each kept block ending in `:`, look at the very next entry in the list; if it is `None` (what it introduced was dropped), split the block into sentences with `r"(?<=[.!?])\s+(?=[A-Z])"`, drop sentences ending in `:`, and keep the rest (or `None`).
 4. Add a `.` to any remaining part not ending in `.?!:`; join with spaces. Return `None` if nothing is left.
 5. If longer than `MAX_CHARS`: cut to `MAX_CHARS`, then cut back to the last `". "`, `"? "` or `"! "` if it is beyond position 200, else to the last space.
@@ -186,7 +215,7 @@ return re.sub(r"\s+", " ", s).strip()
   - `pause|p` -> if speak.py or afplay is running, `pkill -STOP` both (freezing the generator too, so pause works before the first sound); print `paused (voice resume to continue)`, else `nothing playing`.
   - `resume|r|continue` -> `pkill -CONT` both; `resumed` / `nothing paused`.
   - `again|a|repeat|replay` -> if the again file is empty/missing print `nothing spoken yet to repeat`; else stop_all, then if saved audio matches `nohup afplay last.wav &` (instant), else `nohup $PY speak.py "$(cat file)" &` (regenerates); print `saying the last reply again`.
-  - `status|st` -> print `Voice-over status` then lines: `All sessions:  MUTED  (voice unmute)` or `on`; `This session:` MUTED / `silent (started with SPEAK=0)` / `on`, or a hint to run `! voice status` inside Claude Code when no session id; `Playback:` `paused  (voice resume)` if afplay or speak.py has `ps -o stat=` starting with `T`, else `speaking` (afplay running), `preparing speech` (only speak.py running), `idle`; `Voice:` VOICE and SPEED parsed from speak.py with sed (`<voice> at <speed>x speed`); `Again:` `nothing spoken yet` / `ready, instant` / `regenerates (~3s)`; `Last reply:` the last `--- ` line in speak.log for this session (match `[first 8 chars of session id]`), falling back to the most recent overall, or `nothing logged yet`.
+  - `status|st` -> print `Voice-over status` then lines: `All sessions:  MUTED  (voice unmute)` or `on`; `This session:` MUTED / `silent (started with SPEAK=0)` / `on`, or a hint to run `! voice status` inside Claude Code when no session id; `Playback:` `paused  (voice resume)` if afplay or speak.py has `ps -o stat=` starting with `T`, else `speaking` (afplay running), `preparing speech` (only speak.py running), `idle`; `Voice engine:` `loaded (quick start; quits after 45 minutes unused)` if `pgrep -f "$DIR/voice_server.py"` finds it, else `not loaded (the next reply takes ~6s to start)`; `Voice:` VOICE and SPEED parsed from speak.py with sed (`<voice> at <speed>x speed`); `Again:` `nothing spoken yet` / `ready, instant` / `regenerates (~3s)`; `Last reply:` the last `--- ` line in speak.log for this session (match `[first 8 chars of session id]`), falling back to the most recent overall, or `nothing logged yet`.
   - `mute|m` -> with `here`: require a session id (else print `run this inside Claude Code, with ! in front:  ! voice mute here` and exit 1), stop_all, touch `~/.claude/speak-muted/<id>`, print `this session muted (! voice unmute here to undo)`. Without: stop_all, touch `~/.claude/.speak-off`, print `all sessions muted (voice unmute to undo)`.
   - `unmute|u` -> the reverse (`this session unmuted` / `all sessions unmuted`).
   - `read` -> shift; if a `readalong` command exists `exec readalong "$@"`, else print `voice read needs readalong: github.com/venkatvyasam/readalong` and exit 1. (Optional external tool; this repo does not read documents itself.)
@@ -218,10 +247,10 @@ Start a silent session:  SPEAK=0 claude
 Plays every voice saying `"<name>. The agent reads the reply, runs the tool, and sends back an observation. Does this voice sound natural to you?"`. Args are voice-name prefixes (default `af_ am_ bf_ bm_`). Voices from `kokoro.get_voices()`, sorted. `lang` = `en-us` for prefix `a`, `en-gb` for `b`. Speed 1.1. Pipeline generation/playback like speak.py and print `NN/total  voice` as each starts.
 
 ## README.md
-Sections: intro (natural voice, free, offline, runs on the Mac with Kokoro, link to kokoro-onnx), pointer to `docs/guide.html`, Requirements (macOS Apple Silicon or Intel, Claude Code, uv, ~500 MB disk), Install (`git clone`, `cd speak-claude`, `./install.sh`), Controls table (every command above, with short forms; note dashes optional and the `!` prefix inside Claude Code), "Speech stops by itself when you send your next message. Start a silent session with `SPEAK=0 claude`.", Change the voice (`.venv/bin/python audition.py af_ am_` or `bf_ bm_`, then edit `VOICE`), Uninstall, Files table.
+Sections: intro (natural voice, free, offline, runs on the Mac with Kokoro, link to kokoro-onnx), pointer to `docs/guide.html`, Requirements (macOS Apple Silicon or Intel, Claude Code, uv, ~500 MB disk), Install (`git clone`, `cd speak-claude`, `./install.sh`), Controls table (every command above, with short forms; note dashes optional and the `!` prefix inside Claude Code), "Speech stops by itself when you send your next message. Start a silent session with `SPEAK=0 claude`.", Change the voice (`.venv/bin/python audition.py af_ am_` or `bf_ bm_`, then edit `VOICE`), Uninstall, Files table (include `voice_server.py`: "the voice engine: keeps the voice loaded so replies start in about half the time; quits after 45 minutes unused").
 
 ## CLAUDE.md
-Describe how the pieces fit (the two hooks, what each function in speak_reply.py does, chunking, state files `~/.claude/.speak-off` and `~/.claude/speak-muted/<session_id>`), list the load-bearing rules above, the testing commands below, and: replies in this repo are read aloud, so prefer short spoken-style paragraphs and put commands/paths/code in code blocks (the voice skips them). Users are learners: explain changes in plain terms.
+Describe how the pieces fit (the two hooks, what each function in speak_reply.py does, chunking, the voice engine and its fallback, state files `~/.claude/.speak-off` and `~/.claude/speak-muted/<session_id>`), list the load-bearing rules above, the testing commands below, a note that changes to `voice_server.py` need the running engine stopped first (`pkill -f voice_server.py`; the next reply starts the new one), and: replies in this repo are read aloud, so prefer short spoken-style paragraphs and put commands/paths/code in code blocks (the voice skips them). Users are learners: explain changes in plain terms.
 
 ## docs/guide.html
 A single self-contained, friendly HTML guide for a beginner (light/dark aware, readable on a phone). Sections: Setup (which kind of Mac do you have; install uv; get the code; run install.sh), Daily use (the controls), How it works (hooks: your code runs at moments Claude Code chooses; what the Stop hook receives; what speak_reply.py decides, in order; why the first sound comes so quickly; how pause and stop work; the log; the files), Customize (pick a voice; other settings: SPEED, MIN_CHARS, MAX_CHARS, chunk sizes).
@@ -231,7 +260,12 @@ A single self-contained, friendly HTML guide for a beginner (light/dark aware, r
 ./install.sh                     # hear "Hello! The Claude Code voice-over is installed."
 echo '{"session_id":"test","last_assistant_message":"Here is a longer reply about /Users/me/project/src/RootManifestFile.py:42 and some numbers like 5 m² so that it passes the 120 character minimum easily."}' | .venv/bin/python speak_reply.py --dry-run
 # expect: "... the file Root Manifest File, line 42 ... 5 m squared ..."
-./voice status
+printf '%s' '{"session_id":"test","last_assistant_message":"Here are the next steps for the project, in the order I would do them this week:\n\n- Run the build\n- Tell me the result\n- **Then:** merge it"}' | .venv/bin/python speak_reply.py --dry-run
+# expect: "Here are the next steps ... this week: Run the build. Tell me the result. Then: merge it."
+.venv/bin/python speak.py "First test starts the voice engine."     # about 6 s to the first sound
+.venv/bin/python speak.py "Second test uses the loaded engine."     # about 3 s
+./voice status                    # "Voice engine:  loaded ..."
+pkill -f voice_server.py; .venv/bin/python speak.py "Still speaks with no engine."   # fallback works (it restarts the engine)
 ./voice help
 tail -5 speak.log
 ./voice stop
