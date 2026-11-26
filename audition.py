@@ -1,4 +1,5 @@
 """Hear every voice say the same text. Usage: audition.py [prefix ...]  e.g. audition.py af_ bm_"""
+import os
 import subprocess
 import sys
 import tempfile
@@ -7,11 +8,11 @@ from pathlib import Path
 import soundfile as sf
 from kokoro_onnx import Kokoro
 
-HERE = Path(__file__).parent
+DATA = Path(os.environ.get("VOICEOVER_DATA", Path.home() / ".claude" / "voiceover"))
 TEXT = "The agent reads the reply, runs the tool, and sends back an observation. Does this voice sound natural to you?"
 ENGLISH = ("af_", "am_", "bf_", "bm_")
 
-kokoro = Kokoro(str(HERE / "models/kokoro-v1.0.onnx"), str(HERE / "models/voices-v1.0.bin"))
+kokoro = Kokoro(str(DATA / "models/kokoro-v1.0.onnx"), str(DATA / "models/voices-v1.0.bin"))
 prefixes = tuple(sys.argv[1:]) or ENGLISH
 voices = sorted(v for v in kokoro.get_voices() if v.startswith(prefixes))
 lang = {"a": "en-us", "b": "en-gb"}

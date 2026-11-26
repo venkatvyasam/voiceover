@@ -5,11 +5,11 @@ over a Unix socket; it answers with the path of a WAV file it made. While it wai
 uses no CPU and about 500 MB of memory, and it quits by itself after IDLE_MINUTES
 with no requests. The next reply after that starts it again (the slow way, once).
 
-Its name must not contain "speak.py": `voice stop` kills processes matching that,
-and the engine should survive a stop.
+`voice stop` stops speech, not the engine: it signals only the number in speak.pid.
 """
 import fcntl
 import json
+import os
 import socket
 import tempfile
 import time
@@ -18,9 +18,9 @@ from pathlib import Path
 import soundfile as sf
 from kokoro_onnx import Kokoro
 
-HERE = Path(__file__).resolve().parent
-SOCKET = HERE / "voice_server.sock"
-LOCK = HERE / "voice_server.lock"
+DATA = Path(os.environ.get("VOICEOVER_DATA", Path.home() / ".claude" / "voiceover"))  # the voice, log and saved replies
+SOCKET = DATA / "voice_server.sock"
+LOCK = DATA / "voice_server.lock"   # also holds the engine's process number, for `voice status`
 IDLE_MINUTES = 45
 
 
@@ -47,13 +47,17 @@ def serve(conn: socket.socket, kokoro: Kokoro) -> None:
 
 
 def main() -> None:
-    lock = open(LOCK, "w")
+    DATA.mkdir(parents=True, exist_ok=True)
+    lock = open(LOCK, "a")   # "a", not "w": opening must not erase a running engine's number
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
         return  # another engine is already running
+    lock.truncate(0)
+    lock.write(str(os.getpid()))
+    lock.flush()
 
-    kokoro = Kokoro(str(HERE / "models/kokoro-v1.0.onnx"), str(HERE / "models/voices-v1.0.bin"))
+    kokoro = Kokoro(str(DATA / "models/kokoro-v1.0.onnx"), str(DATA / "models/voices-v1.0.bin"))
 
     SOCKET.unlink(missing_ok=True)
     server = socket.socket(socket.AF_UNIX)

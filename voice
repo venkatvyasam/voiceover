@@ -1,9 +1,10 @@
 #!/bin/bash
 # Controls for the Claude Code voice-over. Installed as `voice` and the short form `vo`.
 # `voice help` lists every command.
-DIR=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)   # this repo, even when run through ~/.local/bin
-PY="$DIR/.venv/bin/python"
-LOG="$DIR/speak.log"
+DIR=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)   # the code (in a plugin, its folder changes with every update)
+DATA="${VOICEOVER_DATA:-$HOME/.claude/voiceover}"      # the voice, log and saved replies
+PY="$DATA/.venv/bin/python"
+LOG="$DATA/speak.log"
 SESSION_MUTE_DIR=~/.claude/speak-muted
 SPEED_FILE=~/.claude/speak-speed
 NUMBER='^[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)$'   # 1.3, +.2, -0.1, 2
@@ -31,25 +32,30 @@ set_speed() {
       print s, c }')
     echo "$new" > "$SPEED_FILE"
   fi
-  rm -f "$DIR/last.wav"   # the saved audio is at the old speed, so `voice again` makes it fresh at the new one
+  rm -f "$DATA/last.wav"   # the saved audio is at the old speed, so `voice again` makes it fresh at the new one
   if [ "$clamped" = 1 ]; then echo "speed ${new}x (was ${old}x; the range is 0.5 to 2)"
   else echo "speed ${new}x (was ${old}x)"; fi
   # A replay plays a finished recording, so its speed is fixed.
-  if pgrep -f "$DIR/speak.py --play" >/dev/null; then echo "the replay playing now keeps its speed; the next reply, or vo a, uses ${new}x"; fi
+  if ps -o command= -p "$(speech_pid)" 2>/dev/null | grep -q -- "--play"; then echo "the replay playing now keeps its speed; the next reply, or vo a, uses ${new}x"; fi
 }
 
 # What `voice again` repeats: inside Claude Code, that session's last spoken reply; elsewhere, the last from any session.
 again_file() {
-  if [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then echo "$DIR/last-by-session/$CLAUDE_CODE_SESSION_ID.txt"; else echo "$DIR/last.txt"; fi
+  if [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then echo "$DATA/last-by-session/$CLAUDE_CODE_SESSION_ID.txt"; else echo "$DATA/last.txt"; fi
 }
 
 # last.wav is the audio of last.txt, so it can be replayed only when that's the text we want.
-saved_audio_matches() { [ -s "$DIR/last.wav" ] && cmp -s "$1" "$DIR/last.txt"; }
+saved_audio_matches() { [ -s "$DATA/last.wav" ] && cmp -s "$1" "$DATA/last.txt"; }
 
-stop_all() { pkill -f "$DIR/speak.py" 2>/dev/null; rm -f "$DIR/speak.state"; }
+# The process number of the speak.py that is speaking now, if any. It writes speak.pid; the check
+# that the number still belongs to speak.py stops us signalling some other program.
+speech_pid() { local p; p=$(cat "$DATA/speak.pid" 2>/dev/null) && ps -o command= -p "$p" 2>/dev/null | grep -q "speak.py" && echo "$p"; }
+engine_pid() { local p; p=$(cat "$DATA/voice_server.lock" 2>/dev/null) && ps -o command= -p "$p" 2>/dev/null | grep -q "voice_server.py" && echo "$p"; }
+
+stop_all() { local p; p=$(speech_pid) && kill "$p" 2>/dev/null; rm -f "$DATA/speak.state" "$DATA/speak.pid"; }
 
 # What speak.py is doing: preparing, speaking or paused (it keeps speak.state up to date); empty if idle.
-playback() { pgrep -f "$DIR/speak.py" >/dev/null && cat "$DIR/speak.state" 2>/dev/null; }
+playback() { speech_pid >/dev/null && cat "$DATA/speak.state" 2>/dev/null; }
 
 usage() {
   cat <<'EOF'
@@ -92,7 +98,11 @@ status() {
     preparing) echo "  Playback:      preparing speech" ;;
     *)         echo "  Playback:      idle" ;;
   esac
-  if pgrep -f "$DIR/voice_server.py" >/dev/null; then echo "  Voice engine:  loaded (quick start; quits after 45 minutes unused)"
+  if [ ! -x "$PY" ] || [ ! -s "$DATA/models/kokoro-v1.0.onnx" ]; then
+    if [ -d "$DATA/setup.lock" ]; then echo "  Setup:         downloading the voice now (see $DATA/setup.log)"
+    else echo "  Setup:         not done yet (it runs by itself at the next session start, or run /voiceover:setup)"; fi
+  fi
+  if [ -n "$(engine_pid)" ]; then echo "  Voice engine:  loaded (quick start; quits after 45 minutes unused)"
   else echo "  Voice engine:  not loaded (the next reply takes ~6s to start)"; fi
   echo "  Voice:         $(sed -n 's/^VOICE = "\([^"]*\)".*/\1/p' "$DIR/speak.py") at $(current_speed)x speed  (vo +.2 faster, vo -.1 slower)"
   local again; again=$(again_file)
@@ -120,17 +130,17 @@ where=$(printf '%s' "${2:-}" | tr '[:upper:]' '[:lower:]')
 case "$cmd" in
   stop|s)      stop_all; echo "stopped" ;;
   pause|p)     # speak.py holds its exact place (SIGUSR1); also works before the first sound.
-               if [ -n "$(playback)" ]; then pkill -USR1 -f "$DIR/speak.py"; echo "paused (voice resume to continue)"
+               if [ -n "$(playback)" ]; then kill -USR1 "$(speech_pid)"; echo "paused (voice resume to continue)"
                else echo "nothing playing"; fi ;;
   resume|r|continue)
-               if [ "$(playback)" = paused ]; then pkill -USR2 -f "$DIR/speak.py"; echo "resumed"
+               if [ "$(playback)" = paused ]; then kill -USR2 "$(speech_pid)"; echo "resumed"
                else echo "nothing paused"; fi ;;
   again|a|repeat|replay)
                text=$(again_file)
                [ -s "$text" ] || { echo "nothing spoken yet to repeat"; exit 0; }
                stop_all
                if saved_audio_matches "$text"; then   # saved audio: instant
-                 nohup "$PY" "$DIR/speak.py" --play "$DIR/last.wav" >/dev/null 2>&1 &
+                 nohup "$PY" "$DIR/speak.py" --play "$DATA/last.wav" >/dev/null 2>&1 &
                else                                   # another session spoke since, or the reply was cut off
                  nohup "$PY" "$DIR/speak.py" "$(cat "$text")" >/dev/null 2>&1 &
                fi

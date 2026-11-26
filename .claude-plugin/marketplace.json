@@ -1,0 +1,12 @@
+{
+  "name": "voiceover",
+  "description": "voiceover: Claude Code reads its replies aloud",
+  "owner": { "name": "Venkat Vyasam" },
+  "plugins": [
+    {
+      "name": "voiceover",
+      "source": "./",
+      "description": "Claude Code reads its replies aloud with a free, local voice (Kokoro). macOS."
+    }
+  ]
+}

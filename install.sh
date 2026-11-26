@@ -1,60 +1,21 @@
 #!/bin/bash
-# Installs the Claude Code voice-over. Safe to run again: it updates in place.
+# For working on voiceover's code. Sets up the voice (the same setup the plugin runs by itself)
+# and points the `voice` command at this folder. It no longer adds hooks to
+# ~/.claude/settings.json: the plugin provides them. To use voiceover day to day, install the
+# plugin; see the README. Safe to run again.
 set -euo pipefail
 DIR=$(cd "$(dirname "$0")" && pwd)
-step() { printf '\n==> %s\n' "$1"; }
+DATA="${VOICEOVER_DATA:-$HOME/.claude/voiceover}"
+mkdir -p "$DATA"
 
-[ "$(uname)" = "Darwin" ] || { echo "Sorry: this tool currently works on macOS only."; exit 1; }
-if ! command -v uv >/dev/null; then
-  echo "uv (the Python tool manager) is not installed. Install it with:"
-  echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
-  echo "then open a new terminal window and run ./install.sh again."
-  exit 1
+# Older versions kept the voice model in this folder: move it rather than download it again.
+if [ -d "$DIR/models" ] && [ ! -e "$DATA/models" ]; then
+  mv "$DIR/models" "$DATA/models"
+  echo "moved the voice model to $DATA/models"
 fi
 
-step "Installing Python packages (first time: about a minute)"
-(cd "$DIR" && uv sync --quiet)
-
-step "Downloading the Kokoro voice model (about 340 MB, first time only)"
-mkdir -p "$DIR/models"
-BASE=https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0
-for f in kokoro-v1.0.onnx voices-v1.0.bin; do
-  if [ -s "$DIR/models/$f" ]; then
-    echo "  $f: already downloaded"
-  else
-    curl -fL --progress-bar -o "$DIR/models/$f.part" "$BASE/$f"
-    mv "$DIR/models/$f.part" "$DIR/models/$f"
-  fi
-done
-
-step "Making the 'voice' command (and its short form 'vo') available"
-mkdir -p ~/.local/bin
-for name in voice vo; do
-  link=~/.local/bin/$name
-  if [ -e "$link" ] && [ "$(readlink "$link")" != "$DIR/voice" ]; then
-    echo "  skipped $name: ~/.local/bin/$name already exists and belongs to something else"
-  else
-    ln -sf "$DIR/voice" "$link"; echo "  linked ~/.local/bin/$name"
-  fi
-done
-# Earlier versions called this command 'shush'; remove that old link.
-if [ -L ~/.local/bin/shush ] && { [ ! -e ~/.local/bin/shush ] || [ "$(readlink ~/.local/bin/shush)" = "$DIR/shush" ]; }; then
-  rm ~/.local/bin/shush; echo "  removed the old 'shush' link"
-fi
-case ":$PATH:" in
-  *":$HOME/.local/bin:"*) ;;
-  *) echo "  ~/.local/bin is not on your PATH yet. Run this once, then open a new terminal:"
-     echo "    echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc" ;;
-esac
-
-step "Registering the Claude Code hooks"
-"$DIR/.venv/bin/python" "$DIR/setup_hooks.py" install
-
-pkill -f "$DIR/voice_server.py" 2>/dev/null || true   # an engine left running uses the old code; the test below starts a fresh one
-
-step "Testing the voice (you should hear a short sentence)"
-"$DIR/.venv/bin/python" "$DIR/speak.py" "Hello! The Claude Code voice-over is installed."
+echo "$DIR" > "$DATA/root"   # `voice` runs this folder's code
+"$DIR/setup.sh"
 
 echo
-echo "Done. Start a new Claude Code session and ask something: the reply will be read aloud."
-echo "Controls: run 'voice help'."
+echo "To try this folder as the plugin, for one session:  claude --plugin-dir \"$DIR\""

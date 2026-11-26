@@ -7,13 +7,17 @@ If the engine can't be reached, this loads the model itself, the slower way.
 
 The sound is played here, through `sounddevice`, one chunk straight after another with no
 gap. `voice pause` sends this process SIGUSR1 and `voice resume` SIGUSR2; playback holds
-its exact place in between. STATE tells `voice status` what's happening.
+its exact place in between. STATE tells `voice status` what's happening, and PID tells
+`voice` and the next reply which process to signal.
 """
+import os
 import signal
 from pathlib import Path
 
-HERE = Path(__file__).parent
-STATE = HERE / "speak.state"   # "preparing", "speaking" or "paused"; removed when done
+HERE = Path(__file__).parent   # the code (in a plugin, this folder changes with every update)
+DATA = Path(os.environ.get("VOICEOVER_DATA", Path.home() / ".claude" / "voiceover"))  # the voice, log and saved replies
+STATE = DATA / "speak.state"   # "preparing", "speaking" or "paused"; removed when done
+PID = DATA / "speak.pid"       # this process's number, so stop and pause reach it after an update too
 paused = False
 started = False                # has any sound been queued yet?
 
@@ -39,6 +43,8 @@ def on_resume(*_):
 signal.signal(signal.SIGUSR1, on_pause)
 signal.signal(signal.SIGUSR2, on_resume)
 if __name__ == "__main__":
+    DATA.mkdir(parents=True, exist_ok=True)
+    PID.write_text(str(os.getpid()))
     set_state()   # so `voice pause` sees us from the start
 
 import collections
@@ -64,7 +70,7 @@ GROWTH = 1.8       # each chunk is generated while the previous one plays, and g
                    # ~2.2x faster than speech, so a chunk under ~2x the previous one is ready in time
 MIN_CHUNK = 40     # don't end a chunk on a tiny sentence like "Done." (too short to cover the next)
 LEAD = 0.3         # hand the next chunk to the player when this many seconds of sound are left
-SOCKET = HERE / "voice_server.sock"
+SOCKET = DATA / "voice_server.sock"
 local_kokoro = None  # set only when the engine can't be used
 
 
@@ -142,7 +148,7 @@ def engine_ready():
 
 
 def start_engine():
-    with open(HERE / "speak.log", "ab") as log:
+    with open(DATA / "speak.log", "ab") as log:
         subprocess.Popen([sys.executable, str(HERE / "voice_server.py")], stdout=log, stderr=log,
                          stdin=subprocess.DEVNULL, start_new_session=True)
     for _ in range(300):  # wait up to 30 seconds; loading usually takes about 5
@@ -187,15 +193,15 @@ def make_audio(chunk, rate):
 
 def load_kokoro():
     from kokoro_onnx import Kokoro  # imported only here: it takes a second, and the engine usually makes it unneeded
-    return Kokoro(str(HERE / "models/kokoro-v1.0.onnx"), str(HERE / "models/voices-v1.0.bin"))
+    return Kokoro(str(DATA / "models/kokoro-v1.0.onnx"), str(DATA / "models/voices-v1.0.bin"))
 
 
 def speak(text):
     global local_kokoro, started
     # For `voice again`: last.txt always; last.wav only once every chunk is generated,
     # so an interrupted reply never leaves a partial or mismatched recording.
-    (HERE / "last.wav").unlink(missing_ok=True)
-    (HERE / "last.txt").write_text(text)
+    (DATA / "last.wav").unlink(missing_ok=True)
+    (DATA / "last.txt").write_text(text)
     if not (engine_ready() or start_engine()):
         local_kokoro = load_kokoro()
     player = None
@@ -214,8 +220,8 @@ def speak(text):
             started = True
             set_state()
     if recording:
-        sf.write(HERE / "last.tmp.wav", np.concatenate(recording), sample_rate)
-        (HERE / "last.tmp.wav").rename(HERE / "last.wav")  # atomic: never play a half-written file
+        sf.write(DATA / "last.tmp.wav", np.concatenate(recording), sample_rate)
+        (DATA / "last.tmp.wav").rename(DATA / "last.wav")  # atomic: never play a half-written file
     if player:
         player.finish()
 
@@ -240,4 +246,6 @@ if __name__ == "__main__":
             if text.strip():
                 speak(text)
     finally:
-        STATE.unlink(missing_ok=True)
+        if PID.exists() and PID.read_text() == str(os.getpid()):   # not if a newer reply took over
+            STATE.unlink(missing_ok=True)
+            PID.unlink(missing_ok=True)

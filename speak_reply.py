@@ -1,8 +1,8 @@
 """Claude Code Stop hook: read Claude's reply aloud with Kokoro (free, runs on your Mac).
 
 Claude Code runs this every time a reply finishes, passing JSON on stdin that includes
-`last_assistant_message` (the reply text) and `session_id`. install.sh registers it in
-~/.claude/settings.json.
+`last_assistant_message` (the reply text) and `session_id`. The voiceover plugin registers
+it (hooks/hooks.json).
 
 Design rules, all load-bearing:
   * Never block the session: speech runs in a detached process and this exits at once.
@@ -10,11 +10,14 @@ Design rules, all load-bearing:
   * Never read the whole transcript (it can pass 100 MB): only its tail, and only as a
     fallback for Claude Code versions that don't send `last_assistant_message`.
 
-Every decision (spoken, or skipped and why) goes to speak.log, which `voice status` reads.
-Test without speaking:  echo '{"last_assistant_message": "..."}' | .venv/bin/python speak_reply.py --dry-run
+Every decision (spoken, or skipped and why) goes to speak.log in DATA, which `voice status` reads.
+Test without speaking:  echo '{"last_assistant_message": "..."}' | ~/.claude/voiceover/.venv/bin/python speak_reply.py --dry-run
 """
+import fcntl
+import hashlib
 import json
 import os
+import signal
 import re
 import subprocess
 import sys
@@ -22,16 +25,17 @@ import time
 import unicodedata
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-SPEAK = [str(HERE / ".venv/bin/python"), str(HERE / "speak.py")]
-LOG = HERE / "speak.log"
+HERE = Path(__file__).resolve().parent   # the code
+DATA = Path(os.environ.get("VOICEOVER_DATA", Path.home() / ".claude" / "voiceover"))  # the voice, log and saved replies
+SPEAK = [str(DATA / ".venv/bin/python"), str(HERE / "speak.py")]
+LOG = DATA / "speak.log"
 
 MIN_CHARS = 120    # shorter replies are skipped: mostly notices like "Login expired"
 MAX_CHARS = 5000   # ~4-5 minutes of speech; longer replies are cut at a sentence end
 TAIL_BYTES = 4_000_000
 MUTE_FLAG = os.path.expanduser("~/.claude/.speak-off")            # voice mute / unmute
 SESSION_MUTE_DIR = os.path.expanduser("~/.claude/speak-muted")    # voice mute here: one file per session id
-SESSION_LAST_DIR = HERE / "last-by-session"                        # voice again: each session's last spoken reply
+SESSION_LAST_DIR = DATA / "last-by-session"                        # voice again: each session's last spoken reply
 
 
 def log(session: str, msg: str) -> None:
@@ -39,6 +43,33 @@ def log(session: str, msg: str) -> None:
         return
     with open(LOG, "a") as f:
         f.write(f"\n--- {time.ctime()} [{session[:8]}] {msg}\n")
+
+
+def already_taken(session: str, text: str) -> bool:
+    """True if another copy of this hook already took this reply in the last minute.
+
+    The old install.sh hooks in ~/.claude/settings.json and the plugin's hooks both fire
+    if both are installed; without this, every reply would be read twice.
+    """
+    key = hashlib.sha1(f"{session}\n{text}".encode()).hexdigest()
+    mark = SESSION_LAST_DIR / f"{session}.taken"
+    with open(DATA / "hook.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)   # the two copies run at the same moment: one at a time here
+        if mark.exists() and mark.read_text() == key and time.time() - mark.stat().st_mtime < 60:
+            return True
+        mark.write_text(key)
+    return False
+
+
+def stop_old_speech() -> None:
+    """A new reply replaces whatever is still being read."""
+    try:
+        pid = int((DATA / "speak.pid").read_text())
+    except (OSError, ValueError):
+        return
+    command = subprocess.run(["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True).stdout
+    if "speak.py" in command:   # the number could belong to some other program by now
+        os.kill(pid, signal.SIGTERM)
 
 
 def last_assistant_text(path: str) -> str | None:
@@ -219,6 +250,8 @@ def speakable(text: str) -> str | None:
 
 
 def main() -> None:
+    DATA.mkdir(parents=True, exist_ok=True)
+    SESSION_LAST_DIR.mkdir(exist_ok=True)
     try:
         payload = json.load(sys.stdin)
     except Exception:
@@ -255,11 +288,10 @@ def main() -> None:
         print(line)
         return
 
-    # A new reply replaces whatever is still being read.
-    subprocess.run(["pkill", "-f", str(HERE / "speak.py")],
-                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if already_taken(session, line):
+        return log(session, "skipped: already spoken by the other copy of this hook (run ./uninstall.sh in the old folder)")
+    stop_old_speech()
     log(session, f"spoke {len(line)} chars ({source}): {line[:80]!r}")
-    SESSION_LAST_DIR.mkdir(exist_ok=True)
     (SESSION_LAST_DIR / f"{session}.txt").write_text(line)
     with open(LOG, "ab") as out:   # speak.py errors land in the log too
         subprocess.Popen(SPEAK + [line], stdout=out, stderr=out,

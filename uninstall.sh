@@ -1,20 +1,23 @@
 #!/bin/bash
-# Removes the Claude Code voice-over hooks and the 'voice' / 'vo' commands. Leaves this folder in place.
+# Removes what an older install.sh set up: its two hooks in ~/.claude/settings.json and its
+# links to this folder's `voice`. Run it once when you switch to the plugin, so each reply
+# isn't handled twice. It leaves the plugin and the voice in ~/.claude/voiceover alone.
 set -euo pipefail
 DIR=$(cd "$(dirname "$0")" && pwd)
+DATA="${VOICEOVER_DATA:-$HOME/.claude/voiceover}"
 
-"$DIR/voice" stop >/dev/null 2>&1 || true       # stop anything still speaking
-pkill -f "$DIR/voice_server.py" 2>/dev/null || true   # and unload the voice engine
-"$DIR/.venv/bin/python" "$DIR/setup_hooks.py" uninstall
+"$DIR/voice" stop >/dev/null 2>&1 || true
+PY="$DATA/.venv/bin/python"; [ -x "$PY" ] || PY="$DIR/.venv/bin/python"; [ -x "$PY" ] || PY=python3
+"$PY" "$DIR/setup_hooks.py" uninstall
 for name in voice vo; do
-  if [ "$(readlink ~/.local/bin/$name 2>/dev/null)" = "$DIR/voice" ]; then
+  if [ -L ~/.local/bin/$name ] && [ "$(readlink ~/.local/bin/$name)" = "$DIR/voice" ]; then
     rm ~/.local/bin/$name
-    echo "  removed ~/.local/bin/$name"
+    echo "  removed the old link ~/.local/bin/$name"
   fi
 done
-rm -f ~/.claude/.speak-off ~/.claude/speak-speed
-rm -rf ~/.claude/speak-muted
 
 echo
-echo "Uninstalled. Claude Code will stop reading replies in new sessions."
-echo "To delete everything (including the 340 MB model), delete this folder: $DIR"
+echo "The old hooks are gone. If the voiceover plugin is installed, it carries on as before."
+echo "To remove voiceover completely:"
+echo "  claude plugin uninstall voiceover@voiceover"
+echo "  rm -rf ~/.claude/voiceover ~/.local/bin/voice ~/.local/bin/vo ~/.claude/speak-speed ~/.claude/.speak-off ~/.claude/speak-muted"
