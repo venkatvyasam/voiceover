@@ -1,9 +1,9 @@
 {
   "name": "voiceover",
-  "description": "Claude Code reads its replies aloud with a free, local voice (Kokoro). macOS. Control it with `! vo pause`, `! vo +.2` and more.",
+  "description": "Claude Code reads its replies aloud with a free, local voice (Kokoro). macOS and Windows (beta). Control it with `! vo pause`, `! vo +.2` and more.",
   "author": { "name": "Venkat Vyasam" },
   "homepage": "https://github.com/venkatvyasam/voiceover",
   "repository": "https://github.com/venkatvyasam/voiceover",
   "license": "MIT",
-  "keywords": ["voice", "text-to-speech", "tts", "kokoro", "accessibility", "macos"]
+  "keywords": ["voice", "text-to-speech", "tts", "kokoro", "accessibility", "macos", "windows"]
 }

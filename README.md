@@ -1,16 +1,25 @@
 # voiceover
 
-Claude Code reads its replies aloud in a natural voice. It's free, works offline, and runs entirely on your Mac using the [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) text-to-speech model.
+Claude Code reads its replies aloud in a natural voice. It's free, works offline, and runs entirely on your computer (a Mac, or Windows, which is new) using the [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) text-to-speech model.
 
 **Full guide:** open [`docs/guide.html`](docs/guide.html) in a browser. It covers setup, daily use, how it works, and ideas for extending it.
 
 ## Requirements
 
-- macOS (Apple Silicon or Intel)
+**On a Mac** (Apple Silicon or Intel, macOS 13 or later):
+
 - [Claude Code](https://code.claude.com)
 - git, which Claude Code uses to download plugins. A new Mac doesn't have it: run `xcode-select --install` and click Install
 - [uv](https://docs.astral.sh/uv/): `curl -LsSf https://astral.sh/uv/install.sh | sh`
-- About 500 MB of free disk space (the voice model is 340 MB)
+
+**On Windows** (10 or 11; new, in beta: setup and speech are tested, the rest is still being checked):
+
+- [Git for Windows](https://git-scm.com/downloads/win). It includes Git Bash, which Claude Code uses to run voiceover
+- [Claude Code](https://code.claude.com): in PowerShell, `irm https://claude.ai/install.ps1 | iex`
+- [uv](https://docs.astral.sh/uv/): in PowerShell, `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+- If `claude` or `uv` isn't found afterwards, add `%USERPROFILE%\.local\bin` to your PATH: Start menu, "Edit environment variables for your account", Path, Edit, New. Then open a new terminal
+
+Both need about 500 MB of free disk space (the voice model is 340 MB).
 
 ## Install
 
@@ -22,7 +31,7 @@ voiceover is a Claude Code plugin. In Claude Code, type:
 
 Then start a new session. The first time, it sets up the voice by itself in the background (about 340 MB, a minute or two) and says "voiceover is ready" when it's done. From then on, every reply is read aloud. If setup needs anything (usually uv), a message at the start of the session says so. You can repeat setup any time with `/voiceover:setup`.
 
-Everything it downloads lives in `~/.claude/voiceover`, and the `voice` / `vo` commands go in `~/.local/bin`.
+Everything it downloads lives in `~/.claude/voiceover`, and the `voice` / `vo` commands go in `~/.local/bin` (on Windows, also as `vo.cmd` / `voice.cmd`, for Command Prompt and PowerShell).
 
 **Used the older `install.sh` version?** Run `./uninstall.sh` in that folder once, so its hooks are removed. Until you do, the plugin makes sure each reply is still read only once, and reminds you at the start of each session.
 
@@ -36,7 +45,7 @@ Type these in a terminal, or in Claude Code with a `!` in front (`! voice pause`
 |---|---|
 | `voice stop` (`vo s`) | stop speaking |
 | `voice pause` / `voice resume` (`vo p` / `vo r`) | pause / resume |
-| `voice again` (`vo a`) | say this session's last reply again (outside Claude Code: the last reply from any session) |
+| `voice again` (`vo a`) | say this session's last reply, even one that came while muted (outside Claude Code: the last reply from any session) |
 | `vo +.2` / `vo -.1` | speak faster / slower by that much; remembered, and heard once the chunk playing now ends |
 | `vo 1.3` | set the speed directly (0.5 to 2) |
 | `vo reset` | speed back to the default (1.1) |
@@ -50,7 +59,7 @@ Speech stops by itself when you send your next message. Start a silent session w
 
 ## Change the voice
 
-Listen to the options with `.venv/bin/python audition.py af_ am_` (American) or `bf_ bm_` (British), then set `VOICE` at the top of `speak.py`.
+Listen to the options with `./run audition.py af_ am_` (American) or `bf_ bm_` (British), then set `VOICE` at the top of `speak.py`.
 
 ## Uninstall
 
@@ -58,7 +67,7 @@ Listen to the options with `.venv/bin/python audition.py af_ am_` (American) or 
 /plugin uninstall voiceover@voiceover
 ```
 
-Then delete what it downloaded: `rm -rf ~/.claude/voiceover ~/.local/bin/voice ~/.local/bin/vo`. Your settings (speed, mutes) are the files `~/.claude/speak-speed`, `~/.claude/.speak-off` and the folder `~/.claude/speak-muted`.
+Then delete what it downloaded: `rm -rf ~/.claude/voiceover ~/.local/bin/voice ~/.local/bin/vo` (on Windows, in Git Bash, also `~/.local/bin/voice.cmd ~/.local/bin/vo.cmd`). Your settings (speed, mutes) are the files `~/.claude/speak-speed`, `~/.claude/.speak-off` and the folder `~/.claude/speak-muted`.
 
 ## Files
 
@@ -72,7 +81,9 @@ Then delete what it downloaded: `rm -rf ~/.claude/voiceover ~/.local/bin/voice ~
 | `speak_reply.py` | Claude Code **Stop hook**: picks the text to read and starts `speak.py` |
 | `speak.py` | turns text into speech with Kokoro and plays it in chunks |
 | `voice_server.py` | the voice engine: keeps the voice loaded so replies start in about half the time; quits after 45 minutes unused |
-| `voice` | the controls (installed as `voice` and `vo`), plus the **UserPromptSubmit hook** that stops speech when you send a message |
+| `voice.py` | the controls (installed as `voice` and `vo`), plus the **UserPromptSubmit hook** that stops speech when you send a message; `voice` is a small wrapper that starts it |
+| `run` | starts every hook and the `voice` command with the Python that setup installed (it lives in a different place on macOS and Windows) |
+| `common.py` | the few things that work differently on macOS and Windows: checking a process, locking a file, starting a background process |
 | `setup_hooks.py` | removes the hooks an older install.sh added to `~/.claude/settings.json` (backs it up first) |
 | `install.sh` / `uninstall.sh` | for working on the code: set up the voice for a clone / remove the old install.sh hooks |
 | `audition.py` | plays voices so you can pick one |
@@ -81,4 +92,4 @@ Then delete what it downloaded: `rm -rf ~/.claude/voiceover ~/.local/bin/voice ~
 ## License
 
 [MIT](LICENSE): use, change and share it freely; keep the copyright notice.
-The Kokoro voice model, downloaded by `install.sh`, has its own license (Apache 2.0).
+The Kokoro voice model, downloaded by setup, has its own license (Apache 2.0).

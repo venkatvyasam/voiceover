@@ -6,7 +6,7 @@
     {
       "name": "voiceover",
       "source": "./",
-      "description": "Claude Code reads its replies aloud with a free, local voice (Kokoro). macOS."
+      "description": "Claude Code reads its replies aloud with a free, local voice (Kokoro). macOS and Windows (beta)."
     }
   ]
 }

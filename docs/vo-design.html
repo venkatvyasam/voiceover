@@ -72,7 +72,7 @@
 <main>
 
 <h1>How <code>vo</code> works</h1>
-<p class="sub">The design of the voice-over controls in voiceover. Written 2026-11-16, from the <code>voice-engine</code> branch (branched from <code>main</code> at <code>6d83764</code>).</p>
+<p class="sub">The design of the voice-over controls in voiceover. Written 2026-11-16; updated 2026-11-26 for Windows support (pause by file, the engine on a local port, <code>voice.py</code>).</p>
 
 <div class="callout">
   <p><strong>The short version.</strong> <code>vo</code> and <code>voice</code> are two names for one 127-line bash script. It is the control panel for a tool that reads Claude Code's replies aloud with Kokoro, a free text-to-speech model that runs on your Mac. The script is a shell command, not a Claude Code feature, because everything it controls is an operating-system process (the audio player and the speech generator) and a few flag files. It does not speak anything itself.</p>
@@ -93,9 +93,10 @@
 <tbody>
 <tr><td><code>speak_reply.py</code></td><td>The <em>Stop</em> hook. Decides whether a reply is spoken and what text is spoken, then starts <code>speak.py</code> in the background. Always exits 0.</td><td>After every Claude reply</td></tr>
 <tr><td><code>speak.py</code></td><td>Splits the text into chunks, asks the engine for audio, plays the chunks itself, back to back, through <code>sounddevice</code>. Saves the reply for <code>vo again</code>, and replays it with <code>speak.py --play</code>.</td><td>Started by the hook, or by <code>vo again</code></td></tr>
-<tr><td><code>voice_server.py</code></td><td>The voice engine. Keeps Kokoro loaded (about 500 MB, no CPU while idle) and answers over a Unix socket. Quits after 45 idle minutes.</td><td>Started by <code>speak.py</code> when not running</td></tr>
-<tr><td><code>voice</code> (<code>vo</code>)</td><td>The controls, plus the <em>UserPromptSubmit</em> hook entry (<code>--on-prompt</code>).</td><td>When you type it, and on every message you send</td></tr>
+<tr><td><code>voice_server.py</code></td><td>The voice engine. Keeps Kokoro loaded (about 500 MB, no CPU while idle) and answers on a local network port that only this computer can reach (127.0.0.1). Quits after 45 idle minutes.</td><td>Started by <code>speak.py</code> when not running</td></tr>
+<tr><td><code>voice.py</code>, run as <code>voice</code> / <code>vo</code></td><td>The controls, plus the <em>UserPromptSubmit</em> hook entry (<code>--on-prompt</code>). Python, so it works on macOS and Windows; <code>voice</code> is a small wrapper that starts it.</td><td>When you type it, and on every message you send</td></tr>
 <tr><td><code>session_start.sh</code>, <code>setup.sh</code></td><td>The plugin's SessionStart hook, and the setup it starts in the background the first time: Python packages and the 340 MB model into <code>~/.claude/voiceover</code>, and the <code>voice</code> / <code>vo</code> wrappers.</td><td>At every session start; setup only when needed, or by <code>/voiceover:setup</code></td></tr>
+<tr><td><code>run</code>, <code>common.py</code></td><td>What differs between macOS and Windows. <code>run</code> starts every hook and <code>vo</code> with the Python setup installed (<code>.venv/bin/python</code> or <code>.venv\Scripts\python.exe</code>); <code>common.py</code> checks processes (psutil), locks files and starts background processes the right way for each.</td><td>Every hook, every <code>vo</code></td></tr>
 <tr><td><code>setup_hooks.py</code></td><td>Removes the two hooks an older <code>install.sh</code> put in <code>~/.claude/settings.json</code>. Backs the file up first.</td><td>By <code>uninstall.sh</code></td></tr>
 <tr><td><code>~/.claude/voiceover/speak.log</code></td><td>One line per reply: spoken, or skipped and why. <code>vo status</code> reads it.</td><td>Appended by the hook</td></tr>
 </tbody></table></div>
@@ -125,7 +126,7 @@
   <text class="cap" x="85" y="122" text-anchor="middle">JSON: session_id,</text><text class="cap" x="85" y="138" text-anchor="middle">reply text</text>
   <text class="cap" x="270" y="122" text-anchor="middle">skips if muted or</text><text class="cap" x="270" y="138" text-anchor="middle">under 120 chars</text>
   <text class="cap" x="455" y="122" text-anchor="middle">first chunk 80 chars,</text><text class="cap" x="455" y="138" text-anchor="middle">each next up to 1.8x</text>
-  <text class="cap" x="635" y="122" text-anchor="middle">one WAV per chunk,</text><text class="cap" x="635" y="138" text-anchor="middle">via a Unix socket</text>
+  <text class="cap" x="635" y="122" text-anchor="middle">one WAV per chunk,</text><text class="cap" x="635" y="138" text-anchor="middle">via a local port</text>
   <text class="cap" x="805" y="122" text-anchor="middle">plays one chunk while</text><text class="cap" x="805" y="138" text-anchor="middle">the next is made</text>
 
   <text class="lbl" x="10" y="190">Every message you send</text>
@@ -179,9 +180,9 @@
 <thead><tr><th>Command</th><th>What it does</th><th>Reaches</th></tr></thead>
 <tbody>
 <tr><td><code>stop</code> <code>s</code></td><td>Kills <code>speak.py</code>, which is also the player, so the sound stops at once, even while paused.</td><td><span class="tag g">every session</span></td></tr>
-<tr><td><code>pause</code> <code>p</code></td><td>Sends <code>speak.py</code> SIGUSR1. Its player sends silence and keeps its exact place. Works even before the first sound. Prints "nothing playing" if nothing is running.</td><td><span class="tag g">every session</span></td></tr>
-<tr><td><code>resume</code> <code>r</code></td><td>Sends SIGUSR2: playback carries on from exactly where it stopped. Prints "nothing paused" otherwise.</td><td><span class="tag g">every session</span></td></tr>
-<tr><td><code>again</code> <code>a</code></td><td>Picks the last reply (this session's, inside Claude Code; the latest from any session elsewhere). If <code>last.wav</code> matches it, plays it instantly with <code>speak.py --play</code> (its speed is fixed: it's a recording). Otherwise regenerates it with <code>speak.py</code> in about 3 seconds.</td><td><span class="tag s">this session</span></td></tr>
+<tr><td><code>pause</code> <code>p</code></td><td>Writes <code>speak.py</code>'s number into <code>speak.pause</code>; speak.py checks it 20 times a second. Its player sends silence and keeps its exact place. Works even before the first sound. Prints "nothing playing" if nothing is running.</td><td><span class="tag g">every session</span></td></tr>
+<tr><td><code>resume</code> <code>r</code></td><td>Deletes <code>speak.pause</code>: playback carries on from exactly where it stopped. Prints "nothing paused" otherwise.</td><td><span class="tag g">every session</span></td></tr>
+<tr><td><code>again</code> <code>a</code></td><td>Picks the last reply, even one that came while muted (this session's, inside Claude Code; the latest from any session elsewhere). If <code>last.wav</code> matches it, plays it instantly with <code>speak.py --play</code> (its speed is fixed: it's a recording). Otherwise regenerates it with <code>speak.py</code> in about 3 seconds.</td><td><span class="tag s">this session</span></td></tr>
 <tr><td><code>+.2</code> <code>-.1</code> <code>1.3</code></td><td>A signed number changes the speed by that much; a plain one sets it. Clamped to 0.5–2, saved in <code>~/.claude/speak-speed</code>, read by <code>speak.py</code> for every chunk. Must be checked before dashes are stripped, or <code>-.1</code> would mean <code>.1</code>.</td><td><span class="tag g">every session</span></td></tr>
 <tr><td><code>reset</code></td><td>Deletes <code>~/.claude/speak-speed</code>, so the default in <code>speak.py</code> (1.1) applies again.</td><td><span class="tag g">every session</span></td></tr>
 <tr><td><code>status</code> <code>st</code></td><td>Reads the flag files, <code>SPEAK</code>, <code>speak.state</code> (preparing, speaking or paused), whether the engine is loaded, the voice in <code>speak.py</code> and the saved speed, whether <code>again</code> is ready, and the last decision in <code>speak.log</code>.</td><td>both</td></tr>
@@ -218,12 +219,12 @@
 <tr><td><code>hooks/hooks.json</code></td><td>The plugin's three hooks: SessionStart, Stop and UserPromptSubmit. Nothing is added to <code>~/.claude/settings.json</code>.</td></tr>
 <tr><td><code>~/.claude/.speak-off</code></td><td>Exists when all sessions are muted.</td></tr>
 <tr><td><code>~/.claude/speak-muted/&lt;session_id&gt;</code></td><td>Exists when that one session is muted.</td></tr>
-<tr><td><code>~/.local/bin/voice</code>, <code>~/.local/bin/vo</code></td><td>Small wrappers that run the <code>voice</code> script of the installed version, found through <code>~/.claude/voiceover/root</code> (the plugin's folder changes with every update).</td></tr>
+<tr><td><code>~/.local/bin/voice</code>, <code>~/.local/bin/vo</code></td><td>Small wrappers (plus <code>vo.cmd</code> / <code>voice.cmd</code> on Windows, for Command Prompt and PowerShell) that run the <code>voice</code> script of the installed version, found through <code>~/.claude/voiceover/root</code> (the plugin's folder changes with every update).</td></tr>
 <tr><td colspan="2"><strong>Everything below lives in <code>~/.claude/voiceover</code></strong>, never in the plugin's folder, which updates replace.</td></tr>
 <tr><td><code>speak.log</code></td><td>One <code>---</code> line per reply decision; the engine logs with <code>===</code> so <code>vo status</code> does not mistake its lines for a reply.</td></tr>
 <tr><td><code>last.txt</code>, <code>last.wav</code>, <code>last-by-session/</code></td><td>What <code>vo again</code> replays.</td></tr>
-<tr><td><code>voice_server.sock</code>, <code>voice_server.lock</code></td><td>The engine's socket, and a file lock (<code>flock</code>) so only one engine runs; the lock also holds the engine's process number.</td></tr>
-<tr><td><code>speak.pid</code>, <code>speak.state</code></td><td>The speaking <code>speak.py</code>'s process number, and whether it's preparing, speaking or paused. Stop and pause signal that number, after checking with <code>ps</code> that it still belongs to <code>speak.py</code>.</td></tr>
+<tr><td><code>engine.json</code>, <code>engine.lock</code></td><td>The engine's process number and port, and a file lock so only one engine runs.</td></tr>
+<tr><td><code>speak.pid</code>, <code>speak.state</code>, <code>speak.pause</code></td><td>The speaking <code>speak.py</code>'s process number; whether it's preparing, speaking or paused; and, while paused, its number again. Stop ends that number, after checking that it still belongs to <code>speak.py</code>.</td></tr>
 <tr><td><code>.venv/</code>, <code>models/</code>, <code>READY</code></td><td>The Python packages, the 340 MB Kokoro model, and a checksum of <code>uv.lock</code> that says setup is done for this version.</td></tr>
 </tbody></table></div>
 
@@ -231,7 +232,8 @@
 <ul>
   <li><strong>A hook must never block or fail a turn.</strong> Speech runs in a detached process, and <code>speak_reply.py</code> exits 0 on every path, exceptions included. A broken voice must not break your work.</li>
   <li><strong><code>--on-prompt</code> prints nothing.</strong> What a UserPromptSubmit hook prints is added to Claude's context.</li>
-  <li><strong>Pause is a signal speak.py handles, not SIGSTOP.</strong> It used to freeze <code>afplay</code> with SIGSTOP, but the Mac's sound clock kept running, so resume skipped ahead. speak.py sets its handlers before its slow imports, because an unhandled SIGUSR1 kills a process.</li>
+  <li><strong>Pause is a file speak.py watches, not a signal.</strong> It used to freeze <code>afplay</code> with SIGSTOP, but the Mac's sound clock kept running, so resume skipped ahead. Then it was SIGUSR1, which Windows doesn't have. speak.py starts its watcher before its slow imports, so a pause works while it is still starting.</li>
+  <li><strong>macOS and Windows share the same code.</strong> What differs lives in <code>run</code> and <code>common.py</code>, not in scattered <code>if</code>s.</li>
   <li><strong>The engine's file name must not contain <code>speak.py</code>.</strong> <code>vo stop</code> kills anything matching that, and the engine should survive a stop.</li>
   <li><strong>Speech must work without the engine.</strong> Every engine failure falls back to loading Kokoro inside <code>speak.py</code>, which is slower but audible.</li>
   <li><strong>Voice commands must not stop the speech they target.</strong> The on-prompt hook exempts messages that start with <code>voice</code> or <code>vo</code>.</li>
@@ -254,15 +256,11 @@
 </tbody></table></div>
 
 <h2><span class="n">10</span>Worth knowing</h2>
-<div class="callout warn">
-  <p><strong>Not on main yet.</strong> The voice engine (<code>voice_server.py</code>) and the edits that use it live on the <code>voice-engine</code> branch. Until that branch is merged, <code>main</code> still has the version without the engine.</p>
-</div>
 <ul>
   <li><strong>One voice at a time.</strong> By design, a new reply replaces whatever is still being read. With several sessions open, the last reply to finish wins, and stop, pause and resume reach all of them. To keep a session quiet, mute it with <code>mute here</code> or start it with <code>SPEAK=0</code>.</li>
   <li><strong>Global mute overrides everything.</strong> While <code>~/.claude/.speak-off</code> exists, <code>mute here</code> changes nothing you can hear. Use <code>vo unmute</code> to hand control back to the per-session files.</li>
   <li><strong>Short replies are skipped.</strong> Anything under 120 characters is not spoken, which keeps notices like "Login expired" silent but also silences genuinely short answers.</li>
-  <li><strong>Mac only.</strong> The install script and the <code>voice</code> script assume macOS (playback itself, through <code>sounddevice</code>, would work elsewhere). The idle engine holds about 500 MB of memory for up to 45 minutes.</li>
-  <li><strong>The older docs predate the engine.</strong> <code>guide.html</code> (last changed 2026-10-15) and <code>rebuild-prompt.md</code> (2026-11-06) do not mention <code>voice_server.py</code>, the flag-file locations, or <code>vo read</code>.</li>
+  <li><strong>Windows is new.</strong> Setup and speech are tested there; pause, stop-on-typing and <code>vo</code> in Command Prompt are still being checked. Linux isn't supported yet. The idle engine holds about 500 MB of memory for up to 45 minutes.</li>
 </ul>
 
 <h2><span class="n">11</span>Related docs</h2>

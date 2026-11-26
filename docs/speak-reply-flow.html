@@ -278,7 +278,7 @@ Done.</code></pre>
 <h2><span class="n">8</span>Try it without speaking</h2>
 <p>From the voiceover folder, this prints what <em>would</em> be spoken and makes no sound and no log line:</p>
 <pre><code>echo '{"session_id":"test","last_assistant_message":"&lt;a reply of 120 or more characters&gt;"}' \
-  | ~/.claude/voiceover/.venv/bin/python speak_reply.py --dry-run</code></pre>
+  | ./run speak_reply.py --dry-run</code></pre>
 <p style="margin-top:12px">The dry run still obeys the mute switches. If it prints nothing, run <code>vo status</code> first: a global mute produces silence here too.</p>
 
 <footer>Source: <code>speak_reply.py</code> (249 lines), read in full on 2026-11-16, and the cleaning example was produced by calling its <code>speakable()</code> function. Nothing in the file was changed. For the wider design, see <a href="vo-design.html">vo-design.html</a>.</footer>

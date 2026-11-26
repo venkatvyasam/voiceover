@@ -130,7 +130,7 @@ footer { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 18
 
 <div class="wrap">
   <header class="hero">
-    <div class="eyebrow">A Claude Code add-on · macOS</div>
+    <div class="eyebrow">A Claude Code add-on · macOS and Windows (beta)</div>
     <h1>voiceover</h1>
     <p class="lede">Claude Code reads its replies to you out loud, in a natural voice. Free, offline, and running entirely on your Mac.</p>
     <div class="wave" aria-hidden="true" id="wave"></div>
@@ -170,7 +170,7 @@ footer { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 18
     <section id="before">
       <h2><span class="n">02</span>Before you start</h2>
       <ul>
-        <li><strong>A Mac with macOS 13 (Ventura) or later.</strong> Check under Apple menu → About This Mac.</li>
+        <li><strong>A Mac with macOS 13 (Ventura) or later</strong> (check under Apple menu → About This Mac), <strong>or a Windows 10 or 11 PC</strong>. Windows is new: setup and speech are tested, the rest is still being checked. Windows steps are at the end of this section.</li>
         <li><strong>Claude Code, installed and working.</strong> <code>claude --version</code> should print a version.</li>
         <li><strong>About 500 MB of free disk space</strong>, and internet for the setup only.</li>
       </ul>
@@ -184,6 +184,15 @@ footer { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 18
       <h3>Install uv, if you don't have it</h3>
       <p>uv manages Python for this tool, so you don't have to. Check with <code>uv --version</code>. If that fails, install it, then open a new Terminal window:</p>
       <div class="code"><pre><code>curl -LsSf https://astral.sh/uv/install.sh | sh</code></pre></div>
+      <h3>On Windows instead</h3>
+      <ol class="steps">
+        <li><p><strong>Install Git for Windows</strong> from <a href="https://git-scm.com/downloads/win">git-scm.com</a>. It includes Git Bash, which Claude Code uses to run voiceover.</p></li>
+        <li><p><strong>Install Claude Code and uv.</strong> Open PowerShell (not Git Bash) and run these one at a time:</p>
+          <div class="code"><pre><code>irm https://claude.ai/install.ps1 | iex
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"</code></pre></div></li>
+        <li><p><strong>Close every terminal window, open Git Bash, and check</strong> <code>claude --version</code> and <code>uv --version</code>. If either isn't found, the folder they went into isn't on your PATH yet. Press the Windows key, type <em>environment</em>, choose <strong>Edit environment variables for your account</strong>, select <strong>Path</strong>, click <strong>Edit</strong>, then <strong>New</strong>, type <code>%USERPROFILE%\.local\bin</code>, and click OK twice. Then open a new Git Bash.</p></li>
+      </ol>
+      <p>In PowerShell, <code>curl</code> is a different command; use <code>curl.exe</code>, or run curl in Git Bash. If Claude Code says "connection refused, firewall or proxy may be blocking", check your antivirus or firewall: it may be blocking <code>claude.exe</code>.</p>
     </section>
 
     <section id="install">
@@ -195,7 +204,7 @@ footer { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 18
           <div class="code"><pre><code>/plugin install voiceover --marketplace venkatvyasam/voiceover</code></pre></div>
         </li>
         <li>
-          <p><strong>Start a new Claude Code session.</strong> The first time, voiceover sets up its voice by itself in the background: the Python packages and the voice model, about 340 MB, which takes a minute or two. A message at the top of the session says so, and you'll hear "voiceover is ready" when it's done. Everything goes into <code>~/.claude/voiceover</code>, and the <code>voice</code> command (and its short form <code>vo</code>) into <code>~/.local/bin</code>.</p>
+          <p><strong>Start a new Claude Code session.</strong> The first time, voiceover sets up its voice by itself in the background: the Python packages and the voice model, about 340 MB, which takes a minute or two. A message at the top of the session says so, and you'll hear "voiceover is ready" when it's done. Everything goes into <code>~/.claude/voiceover</code>, and the <code>voice</code> command (and its short form <code>vo</code>) into <code>~/.local/bin</code>. On Windows, setup also makes <code>vo.cmd</code> and <code>voice.cmd</code> there, so <code>vo</code> works in Command Prompt and PowerShell too.</p>
         </li>
         <li>
           <p><strong>If the message says something is missing</strong> (usually uv), install it, then start another session. You can also repeat the setup any time with <code>/voiceover:setup</code>.</p>
@@ -223,7 +232,7 @@ footer { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 18
           <tr><td><code>voice stop</code></td><td><code>vo s</code></td><td>Stop speaking now</td></tr>
           <tr><td><code>voice pause</code></td><td><code>vo p</code></td><td>Pause, even before the first sound</td></tr>
           <tr><td><code>voice resume</code></td><td><code>vo r</code></td><td>Continue where it paused</td></tr>
-          <tr><td><code>voice again</code></td><td><code>vo a</code></td><td>Say the last reply again (instant)</td></tr>
+          <tr><td><code>voice again</code></td><td><code>vo a</code></td><td>Say the last reply again (instant), even one that came while muted</td></tr>
           <tr><td><code>voice +.2</code> / <code>voice -.1</code></td><td><code>vo +.2</code></td><td>Speak faster / slower by that much; remembered, heard once the chunk playing now ends</td></tr>
           <tr><td><code>voice 1.3</code></td><td><code>vo 1.3</code></td><td>Set the speed directly (0.5 to 2)</td></tr>
           <tr><td><code>voice reset</code></td><td></td><td>Speed back to the default (1.1)</td></tr>
@@ -316,7 +325,8 @@ footer { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 18
       <p class="dim">Rough timing on an Intel laptop. Apple Silicon Macs are faster.</p>
 
       <h3>How pause and stop work</h3>
-      <p>speak.py plays the sound itself, through a library called <code>sounddevice</code>. The chunks go into one queue that the sound card reads from, so they play back to back with no gap. <code>voice pause</code> sends speak.py a signal (<code>SIGUSR1</code>); its player then sends silence and remembers exactly where it was. <code>voice resume</code> sends another (<code>SIGUSR2</code>) and it carries on from that spot. <code>voice stop</code> ends speak.py, and the sound stops with it.</p>
+      <p>speak.py plays the sound itself, through a library called <code>sounddevice</code>. The chunks go into one queue that the sound card reads from, so they play back to back with no gap. <code>voice pause</code> writes speak.py's process number into a small file, <code>speak.pause</code>. speak.py checks that file 20 times a second; when it sees its number, its player sends silence and remembers exactly where it was. <code>voice resume</code> deletes the file, and it carries on from that spot. <code>voice stop</code> ends speak.py, and the sound stops with it.</p>
+      <p>Pause used to be a signal sent to speak.py (<code>SIGUSR1</code>), but Windows has no such signals. A file works the same way on both.</p>
       <p>It used to play through <code>afplay</code>, the Mac's built-in audio player, and pause by freezing it. That had two problems: <code>afplay</code> runs about a second after its sound ends, which left a silence between chunks, and a frozen player skipped ahead when unfrozen, because the Mac's sound clock kept running.</p>
 
       <h3>The log</h3>
@@ -333,7 +343,8 @@ footer { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 18
           <tr><td><code>session_start.sh</code>, <code>setup.sh</code></td><td>The SessionStart hook, and the setup it starts the first time (also <code>/voiceover:setup</code>)</td></tr>
           <tr><td><code>speak_reply.py</code></td><td>The Stop hook: decides whether to speak and what</td></tr>
           <tr><td><code>speak.py</code></td><td>Text to speech with Kokoro, chunked playback, saves the last reply for <code>voice again</code></td></tr>
-          <tr><td><code>voice</code></td><td>The controls, plus the UserPromptSubmit hook (<code>--on-prompt</code>)</td></tr>
+          <tr><td><code>voice.py</code>, <code>voice</code></td><td>The controls, plus the UserPromptSubmit hook (<code>--on-prompt</code>); <code>voice</code> is a small wrapper that starts it</td></tr>
+          <tr><td><code>run</code>, <code>common.py</code></td><td>What differs between macOS and Windows: <code>run</code> finds the Python that setup installed; <code>common.py</code> checks processes, locks files and starts background processes the right way for each</td></tr>
           <tr><td><code>install.sh</code>, <code>uninstall.sh</code>, <code>setup_hooks.py</code></td><td>For working on the code: set up a clone, and remove the hooks an older version put in <code>~/.claude/settings.json</code></td></tr>
           <tr><td><code>audition.py</code></td><td>Plays voices so you can choose one</td></tr>
         </tbody>
@@ -345,9 +356,9 @@ footer { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 18
       <p>All settings are constants at the top of two files. Changes apply from the next reply; no restart needed.</p>
       <h3>Pick a voice</h3>
       <p>Kokoro has 28 English voices. Hear them all say the same sentence (run inside the voiceover folder):</p>
-      <div class="code"><pre><code>~/.claude/voiceover/.venv/bin/python audition.py af_ am_      # American women, American men
-~/.claude/voiceover/.venv/bin/python audition.py bf_ bm_      # British women, British men
-~/.claude/voiceover/.venv/bin/python audition.py af_heart am_fenrir bm_fable   # compare a few</code></pre></div>
+      <div class="code"><pre><code>./run audition.py af_ am_      # American women, American men
+./run audition.py bf_ bm_      # British women, British men
+./run audition.py af_heart am_fenrir bm_fable   # compare a few</code></pre></div>
       <p>Then set <code>VOICE</code> at the top of <code>speak.py</code>, for example <code>VOICE = "am_fenrir"</code>. The default, <code>af_heart</code>, is one of the most natural. <code>am_fenrir</code> and <code>bm_fable</code> are good male voices.</p>
       <h3>Other settings</h3>
       <div class="table"><table>
@@ -393,7 +404,7 @@ footer { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 18
         <li><strong>Hear when Claude needs you.</strong> Add a Notification hook that says "Claude needs your input" when it's waiting for permission.<span class="meta">a new hook in hooks/hooks.json · see the hooks docs</span></li>
         <li><strong>Change voice from the command line.</strong> <code>voice use am_fenrir</code>, stored in a small settings file instead of edited in code.<span class="meta">voice and speak.py</span></li>
         <li><strong>Say "see the code on screen"</strong> where a code block was skipped, so you know something was there.<span class="meta">speak_reply.py · speakable()</span></li>
-        <li><strong>Port it to Linux.</strong> Playback already works there (<code>sounddevice</code>); the install script and the <code>voice</code> script are the parts that assume macOS.<span class="meta">install.sh and voice</span></li>
+        <li><strong>Port it to Linux.</strong> The Python already works there, and the macOS and Windows differences are all in one place. Linux needs a line in <code>setup.sh</code>'s system check, and PortAudio for the sound.<span class="meta">setup.sh and common.py</span></li>
       </ul>
     </section>
   </main>
