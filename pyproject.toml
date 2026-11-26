@@ -7,6 +7,7 @@ dependencies = [
     "kokoro-onnx>=0.6.1",
     # 1.23.2 is the last onnxruntime with Intel Mac builds; it has Apple Silicon builds too.
     "onnxruntime==1.23.2",
+    "psutil>=7.0.0",
     "sounddevice>=0.5.6",
     "soundfile>=0.14.0",
 ]

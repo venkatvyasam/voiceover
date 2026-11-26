@@ -20,4 +20,4 @@ echo
 echo "The old hooks are gone. If the voiceover plugin is installed, it carries on as before."
 echo "To remove voiceover completely:"
 echo "  claude plugin uninstall voiceover@voiceover"
-echo "  rm -rf ~/.claude/voiceover ~/.local/bin/voice ~/.local/bin/vo ~/.claude/speak-speed ~/.claude/.speak-off ~/.claude/speak-muted"
+echo "  rm -rf ~/.claude/voiceover ~/.local/bin/voice ~/.local/bin/vo ~/.local/bin/voice.cmd ~/.local/bin/vo.cmd ~/.claude/speak-speed ~/.claude/.speak-off ~/.claude/speak-muted"

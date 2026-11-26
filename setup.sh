@@ -1,16 +1,21 @@
 #!/bin/bash
 # Sets up voiceover's voice: the Python packages and the Kokoro model (about 340 MB), in
 # ~/.claude/voiceover. Safe to run again: it only fetches what's missing.
+# Runs on macOS, and on Windows in Git Bash (which comes with Git for Windows).
 #
 # The plugin runs this by itself in the background (session_start.sh), and /voiceover:setup
 # runs it on request. When it's done it writes READY, so the next session doesn't start it again.
 set -euo pipefail
-ROOT=$(cd "$(dirname "$0")" && pwd)                 # the code
+ROOT=$(cd "$(dirname "$0")" && { pwd -W 2>/dev/null || pwd; })   # the code (pwd -W: as C:/..., which Windows programs understand)
 DATA="${VOICEOVER_DATA:-$HOME/.claude/voiceover}"   # where the voice goes
 step() { printf '\n==> %s\n' "$1"; }
 PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"   # where uv usually lives
 
-[ "$(uname)" = "Darwin" ] || { echo "voiceover works on macOS only."; exit 1; }
+case "$(uname)" in
+  Darwin) windows=no ;;
+  MINGW*|MSYS*|CYGWIN*) windows=yes ;;   # Git Bash on Windows
+  *) echo "voiceover works on macOS and Windows only."; exit 1 ;;
+esac
 command -v uv >/dev/null || {
   echo "voiceover needs uv (the Python tool manager). Install it with:"
   echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
@@ -18,6 +23,7 @@ command -v uv >/dev/null || {
   exit 1
 }
 mkdir -p "$DATA"
+DATA=$(cd "$DATA" && { pwd -W 2>/dev/null || pwd; })   # as C:/... on Windows, for uv and curl
 # One setup at a time: a second session starting meanwhile leaves this one to finish.
 mkdir "$DATA/setup.lock" 2>/dev/null || { echo "voiceover setup is already running"; exit 0; }
 trap 'rmdir "$DATA/setup.lock" 2>/dev/null' EXIT
@@ -52,6 +58,9 @@ for name in voice vo; do
   # The code moves with every plugin update, so the wrapper looks up where it is now.
   printf '#!/bin/bash\n# voiceover wrapper: runs the voice script of the installed version\nexec "$(cat "%s/root")/voice" "$@"\n' "$DATA" > "$link"
   chmod +x "$link"
+  if [ "$windows" = yes ]; then   # and one for Command Prompt and PowerShell
+    printf '@echo off\r\nrem voiceover wrapper: runs the voice script of the installed version\r\nset /p VOICEOVER_ROOT=<"%%USERPROFILE%%\\.claude\\voiceover\\root"\r\nset PYTHONUTF8=1\r\n"%%USERPROFILE%%\\.claude\\voiceover\\.venv\\Scripts\\python.exe" "%%VOICEOVER_ROOT%%\\voice.py" %%*\r\n' > "$link.cmd"
+  fi
   echo "  made ~/.local/bin/$name"
 done
 [ -s "$DATA/root" ] || echo "$ROOT" > "$DATA/root"
@@ -68,5 +77,5 @@ echo "Controls (in Claude Code, type them with ! in front):"
 echo "  vo p pause   vo r resume   vo s stop   vo a say it again"
 echo "  vo +.2 / vo -.1 faster / slower   vo reset normal speed   vo help everything"
 if [ "$first_time" = yes ] && [ ! -e ~/.claude/.speak-off ]; then
-  "$DATA/.venv/bin/python" "$ROOT/speak.py" "voiceover is ready. Claude's replies will now be read aloud. Type vo help to see the controls." || true
+  "$ROOT/run" speak.py "voiceover is ready. Claude's replies will now be read aloud. Type vo help to see the controls." || true
 fi

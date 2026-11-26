@@ -1,4 +1,4 @@
-"""Claude Code Stop hook: read Claude's reply aloud with Kokoro (free, runs on your Mac).
+"""Claude Code Stop hook: read Claude's reply aloud with Kokoro (free, runs on your computer).
 
 Claude Code runs this every time a reply finishes, passing JSON on stdin that includes
 `last_assistant_message` (the reply text) and `session_id`. The voiceover plugin registers
@@ -11,23 +11,22 @@ Design rules, all load-bearing:
     fallback for Claude Code versions that don't send `last_assistant_message`.
 
 Every decision (spoken, or skipped and why) goes to speak.log in DATA, which `voice status` reads.
-Test without speaking:  echo '{"last_assistant_message": "..."}' | ~/.claude/voiceover/.venv/bin/python speak_reply.py --dry-run
+Test without speaking:  echo '{"last_assistant_message": "..."}' | ./run speak_reply.py --dry-run
 """
-import fcntl
 import hashlib
 import json
 import os
 import signal
 import re
-import subprocess
 import sys
 import time
 import unicodedata
 from pathlib import Path
 
+from common import DATA, lock, read_pid, spawn
+
 HERE = Path(__file__).resolve().parent   # the code
-DATA = Path(os.environ.get("VOICEOVER_DATA", Path.home() / ".claude" / "voiceover"))  # the voice, log and saved replies
-SPEAK = [str(DATA / ".venv/bin/python"), str(HERE / "speak.py")]
+SPEAK = [sys.executable, str(HERE / "speak.py")]   # the same Python that runs this hook
 LOG = DATA / "speak.log"
 
 MIN_CHARS = 120    # shorter replies are skipped: mostly notices like "Login expired"
@@ -53,8 +52,8 @@ def already_taken(session: str, text: str) -> bool:
     """
     key = hashlib.sha1(f"{session}\n{text}".encode()).hexdigest()
     mark = SESSION_LAST_DIR / f"{session}.taken"
-    with open(DATA / "hook.lock", "w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)   # the two copies run at the same moment: one at a time here
+    with open(DATA / "hook.lock", "a") as held:
+        lock(held)   # the two copies run at the same moment: one at a time here
         if mark.exists() and mark.read_text() == key and time.time() - mark.stat().st_mtime < 60:
             return True
         mark.write_text(key)
@@ -63,13 +62,9 @@ def already_taken(session: str, text: str) -> bool:
 
 def stop_old_speech() -> None:
     """A new reply replaces whatever is still being read."""
-    try:
-        pid = int((DATA / "speak.pid").read_text())
-    except (OSError, ValueError):
-        return
-    command = subprocess.run(["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True).stdout
-    if "speak.py" in command:   # the number could belong to some other program by now
-        os.kill(pid, signal.SIGTERM)
+    pid = read_pid(DATA / "speak.pid", "speak.py")   # None if the number belongs to some other program by now
+    if pid:
+        os.kill(pid, signal.SIGTERM)   # on Windows this ends the process at once
 
 
 def last_assistant_text(path: str) -> str | None:
@@ -293,9 +288,7 @@ def main() -> None:
     stop_old_speech()
     log(session, f"spoke {len(line)} chars ({source}): {line[:80]!r}")
     (SESSION_LAST_DIR / f"{session}.txt").write_text(line)
-    with open(LOG, "ab") as out:   # speak.py errors land in the log too
-        subprocess.Popen(SPEAK + [line], stdout=out, stderr=out,
-                         stdin=subprocess.DEVNULL, start_new_session=True)
+    spawn(SPEAK + [line], LOG)   # speak.py errors land in the log too
 
 
 if __name__ == "__main__":

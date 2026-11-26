@@ -19,3 +19,7 @@ voice_server.lock
 models/
 speak.log
 speak.state
+speak.pause
+engine.json
+engine.lock
+hook.lock

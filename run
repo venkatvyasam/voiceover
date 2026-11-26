@@ -1,0 +1,17 @@
+#!/bin/bash
+# Runs one of voiceover's Python scripts with the Python that setup installed:
+#   run speak_reply.py      run voice.py status      run speak.py "Hello"
+# The hooks and the `voice` command all start here, so this is the one place that knows
+# where that Python is: .venv/bin/python on macOS, .venv/Scripts/python.exe on Windows.
+# (Claude Code runs hooks with bash on macOS, and with Git Bash on Windows.)
+ROOT=$(cd "$(dirname "$0")" && { pwd -W 2>/dev/null || pwd; })   # pwd -W: as C:/... on Windows, which Python understands
+DATA="${VOICEOVER_DATA:-$HOME/.claude/voiceover}"
+PY="$DATA/.venv/bin/python"
+[ -x "$PY" ] || PY="$DATA/.venv/Scripts/python.exe"
+if [ ! -x "$PY" ]; then   # not set up yet
+  [ "$1" = voice.py ] || exit 0              # the hooks do nothing until then
+  PY=$(command -v python3 || command -v python)   # `voice help` and `voice status` still work
+fi
+export PYTHONUTF8=1   # read and write text as UTF-8; Windows would otherwise use its older code page
+script="$1"; shift
+exec "$PY" "$ROOT/$script" "$@"

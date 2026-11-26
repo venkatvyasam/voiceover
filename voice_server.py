@@ -1,13 +1,13 @@
 """The voice engine: keeps Kokoro loaded between replies so speech starts quickly.
 
 speak.py starts this when it isn't running, then sends it one chunk of text at a time
-over a Unix socket; it answers with the path of a WAV file it made. While it waits it
+over a network connection that only this computer can reach (127.0.0.1, a port the
+system picks, saved in engine.json); it answers with the path of a WAV file it made. While it waits it
 uses no CPU and about 500 MB of memory, and it quits by itself after IDLE_MINUTES
 with no requests. The next reply after that starts it again (the slow way, once).
 
-`voice stop` stops speech, not the engine: it signals only the number in speak.pid.
+`voice stop` stops speech, not the engine: it stops only the number in speak.pid.
 """
-import fcntl
 import json
 import os
 import socket
@@ -18,9 +18,10 @@ from pathlib import Path
 import soundfile as sf
 from kokoro_onnx import Kokoro
 
-DATA = Path(os.environ.get("VOICEOVER_DATA", Path.home() / ".claude" / "voiceover"))  # the voice, log and saved replies
-SOCKET = DATA / "voice_server.sock"
-LOCK = DATA / "voice_server.lock"   # also holds the engine's process number, for `voice status`
+from common import DATA, lock
+
+ENGINE = DATA / "engine.json"   # {"pid": ..., "port": ...}: how speak.py finds us, and `voice status` too
+LOCK = DATA / "engine.lock"     # held while we run, so only one engine starts
 IDLE_MINUTES = 45
 
 
@@ -48,21 +49,17 @@ def serve(conn: socket.socket, kokoro: Kokoro) -> None:
 
 def main() -> None:
     DATA.mkdir(parents=True, exist_ok=True)
-    lock = open(LOCK, "a")   # "a", not "w": opening must not erase a running engine's number
+    held = open(LOCK, "a")
     try:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
+        lock(held, wait=False)
+    except OSError:
         return  # another engine is already running
-    lock.truncate(0)
-    lock.write(str(os.getpid()))
-    lock.flush()
 
     kokoro = Kokoro(str(DATA / "models/kokoro-v1.0.onnx"), str(DATA / "models/voices-v1.0.bin"))
 
-    SOCKET.unlink(missing_ok=True)
-    server = socket.socket(socket.AF_UNIX)
-    server.bind(str(SOCKET))
-    server.listen()
+    server = socket.create_server(("127.0.0.1", 0))   # port 0: the system picks a free one
+    me = {"pid": os.getpid(), "port": server.getsockname()[1]}
+    ENGINE.write_text(json.dumps(me))
     server.settimeout(60)  # wake once a minute to check how long it's been unused
     log(f"voice engine ready (quits after {IDLE_MINUTES} minutes unused)")
 
@@ -81,7 +78,8 @@ def main() -> None:
             last_used = time.time()
         log(f"voice engine quit after {IDLE_MINUTES} minutes unused")
     finally:
-        SOCKET.unlink(missing_ok=True)
+        if ENGINE.exists() and ENGINE.read_text() == json.dumps(me):
+            ENGINE.unlink()
 
 
 if __name__ == "__main__":

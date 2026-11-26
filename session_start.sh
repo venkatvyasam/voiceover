@@ -7,7 +7,7 @@
 #   - warns if the old install.sh hooks are still in ~/.claude/settings.json.
 # Anything it prints must be JSON with a "systemMessage", which is shown to the user.
 # Plain text would be added to Claude's context instead.
-ROOT=$(cd "$(dirname "$0")" && pwd)
+ROOT=$(cd "$(dirname "$0")" && { pwd -W 2>/dev/null || pwd; })   # pwd -W: as C:/... on Windows, which Python understands
 DATA="${VOICEOVER_DATA:-$HOME/.claude/voiceover}"
 PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"   # where uv usually lives
 mkdir -p "$DATA" && echo "$ROOT" > "$DATA/root"
@@ -19,7 +19,7 @@ if grep -qE 'speak_reply\.py|voice\\?" --on-prompt' ~/.claude/settings.json 2>/d
 fi
 
 ready() {
-  [ -x "$DATA/.venv/bin/python" ] && [ -s "$DATA/models/kokoro-v1.0.onnx" ] && [ -s "$DATA/models/voices-v1.0.bin" ] \
+  { [ -x "$DATA/.venv/bin/python" ] || [ -x "$DATA/.venv/Scripts/python.exe" ]; } && [ -s "$DATA/models/kokoro-v1.0.onnx" ] && [ -s "$DATA/models/voices-v1.0.bin" ] \
     && [ "$(cat "$DATA/READY" 2>/dev/null)" = "$(cksum < "$ROOT/uv.lock" | cut -d' ' -f1)" ]
 }
 if ! ready; then
@@ -29,7 +29,8 @@ if ! ready; then
     say "voiceover needs uv to install its voice. Run: curl -LsSf https://astral.sh/uv/install.sh | sh   then start a new session."
   else
     rmdir "$DATA/setup.lock" 2>/dev/null   # left behind by a setup that was interrupted
-    nohup "$ROOT/setup.sh" >> "$DATA/setup.log" 2>&1 < /dev/null &
+    bg=$(command -v nohup)   # Git Bash on Windows may not have nohup
+    $bg "$ROOT/setup.sh" >> "$DATA/setup.log" 2>&1 < /dev/null &
     say "voiceover: setting up the voice in the background (about 340 MB, a minute or two). You'll hear it say it's ready. Then type  ! vo help  to see the controls."
   fi
 elif [ ! -e "$DATA/welcomed" ]; then   # once, the first session after setup

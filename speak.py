@@ -6,18 +6,23 @@ starts in about 3 seconds instead of 6. This starts the engine when it isn't run
 If the engine can't be reached, this loads the model itself, the slower way.
 
 The sound is played here, through `sounddevice`, one chunk straight after another with no
-gap. `voice pause` sends this process SIGUSR1 and `voice resume` SIGUSR2; playback holds
-its exact place in between. STATE tells `voice status` what's happening, and PID tells
-`voice` and the next reply which process to signal.
+gap. `voice pause` writes this process's number into PAUSE and `voice resume` removes it;
+a small watcher thread notices within 1/20 of a second, and playback holds its exact place
+in between. (This works the same on macOS and Windows, which has no pause signals.)
+STATE tells `voice status` what's happening, and PID tells `voice` and the next reply
+which process to stop.
 """
 import os
-import signal
+import threading
+import time
 from pathlib import Path
 
+from common import DATA, spawn
+
 HERE = Path(__file__).parent   # the code (in a plugin, this folder changes with every update)
-DATA = Path(os.environ.get("VOICEOVER_DATA", Path.home() / ".claude" / "voiceover"))  # the voice, log and saved replies
 STATE = DATA / "speak.state"   # "preparing", "speaking" or "paused"; removed when done
 PID = DATA / "speak.pid"       # this process's number, so stop and pause reach it after an update too
+PAUSE = DATA / "speak.pause"   # holds our number while paused
 paused = False
 started = False                # has any sound been queued yet?
 
@@ -26,36 +31,35 @@ def set_state():
     STATE.write_text("paused" if paused else "speaking" if started else "preparing")
 
 
-def on_pause(*_):
+def watch_pause():
+    """Follow PAUSE: paused while it holds our number."""
     global paused
-    paused = True
-    set_state()
+    me = str(os.getpid())
+    while True:
+        try:
+            now = PAUSE.read_text() == me
+        except OSError:
+            now = False
+        if now != paused:
+            paused = now
+            set_state()
+        time.sleep(0.05)
 
 
-def on_resume(*_):
-    global paused
-    paused = False
-    set_state()
-
-
-# Before the slow imports below: a SIGUSR1 that arrives with no handler kills the process,
-# and `voice pause` can be sent while this is still starting up.
-signal.signal(signal.SIGUSR1, on_pause)
-signal.signal(signal.SIGUSR2, on_resume)
+# Before the slow imports below, so `voice pause` works while this is still starting up.
 if __name__ == "__main__":
     DATA.mkdir(parents=True, exist_ok=True)
+    PAUSE.unlink(missing_ok=True)   # a pause left from an older reply isn't for us
     PID.write_text(str(os.getpid()))
-    set_state()   # so `voice pause` sees us from the start
+    set_state()
+    threading.Thread(target=watch_pause, daemon=True).start()
 
 import collections
 import json
 import re
 import socket
-import subprocess
 import sys
 import tempfile
-import threading
-import time
 
 import numpy as np
 import sounddevice as sd
@@ -70,7 +74,7 @@ GROWTH = 1.8       # each chunk is generated while the previous one plays, and g
                    # ~2.2x faster than speech, so a chunk under ~2x the previous one is ready in time
 MIN_CHUNK = 40     # don't end a chunk on a tiny sentence like "Done." (too short to cover the next)
 LEAD = 0.3         # hand the next chunk to the player when this many seconds of sound are left
-SOCKET = DATA / "voice_server.sock"
+ENGINE = DATA / "engine.json"   # the voice engine's process number and network port
 local_kokoro = None  # set only when the engine can't be used
 
 
@@ -138,19 +142,25 @@ def chunks(text):
     return out + [cur] if cur else out
 
 
+def connect_engine(timeout):
+    """A connection to the voice engine, on this computer only (127.0.0.1). Raises OSError if it isn't running."""
+    try:
+        port = json.loads(ENGINE.read_text())["port"]
+    except (ValueError, KeyError, TypeError) as e:
+        raise OSError(f"bad {ENGINE.name}") from e
+    return socket.create_connection(("127.0.0.1", port), timeout=timeout)
+
+
 def engine_ready():
     try:
-        with socket.socket(socket.AF_UNIX) as s:
-            s.connect(str(SOCKET))
+        connect_engine(2).close()
         return True
     except OSError:
         return False
 
 
 def start_engine():
-    with open(DATA / "speak.log", "ab") as log:
-        subprocess.Popen([sys.executable, str(HERE / "voice_server.py")], stdout=log, stderr=log,
-                         stdin=subprocess.DEVNULL, start_new_session=True)
+    spawn([sys.executable, str(HERE / "voice_server.py")], DATA / "speak.log")
     for _ in range(300):  # wait up to 30 seconds; loading usually takes about 5
         time.sleep(0.1)
         if engine_ready():
@@ -171,9 +181,7 @@ def make_wav(chunk, rate):
     global local_kokoro
     if local_kokoro is None:
         try:
-            with socket.socket(socket.AF_UNIX) as s:
-                s.settimeout(60)
-                s.connect(str(SOCKET))
+            with connect_engine(60) as s:
                 s.sendall(json.dumps({"text": chunk, "voice": VOICE, "speed": rate}).encode() + b"\n")
                 return json.loads(s.makefile().readline())["wav"]
         except (OSError, ValueError, KeyError):
@@ -221,7 +229,7 @@ def speak(text):
             set_state()
     if recording:
         sf.write(DATA / "last.tmp.wav", np.concatenate(recording), sample_rate)
-        (DATA / "last.tmp.wav").rename(DATA / "last.wav")  # atomic: never play a half-written file
+        (DATA / "last.tmp.wav").replace(DATA / "last.wav")  # atomic: never play a half-written file
     if player:
         player.finish()
 
@@ -249,3 +257,4 @@ if __name__ == "__main__":
         if PID.exists() and PID.read_text() == str(os.getpid()):   # not if a newer reply took over
             STATE.unlink(missing_ok=True)
             PID.unlink(missing_ok=True)
+            PAUSE.unlink(missing_ok=True)

@@ -1,0 +1,4 @@
+# Keep Unix line endings on every system. On Windows, Git may otherwise check files out with
+# Windows line endings, and bash then fails on the scripts ("\r: command not found").
+* text=auto eol=lf
+*.wav binary
