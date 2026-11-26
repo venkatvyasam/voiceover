@@ -252,12 +252,6 @@ def main() -> None:
     except Exception:
         return log("?", "skipped: unreadable hook input")
     session = payload.get("session_id") or "?"
-    if os.path.exists(MUTE_FLAG):
-        return log(session, "skipped: all sessions muted (voice unmute)")
-    if os.environ.get("SPEAK") == "0":   # `SPEAK=0 claude` starts a silent session
-        return log(session, "skipped: session started with SPEAK=0")
-    if os.path.exists(os.path.join(SESSION_MUTE_DIR, session)):
-        return log(session, "skipped: this session muted (! voice unmute here)")
 
     # Claude Code passes the final reply itself. Reading the transcript instead
     # races the write of that reply and can return the previous message.
@@ -282,6 +276,16 @@ def main() -> None:
     if "--dry-run" in sys.argv:
         print(line)
         return
+
+    # Muted: don't speak, but keep the reply, so `voice again` reads this one when asked
+    # (not an older reply that happened to be spoken).
+    muted = ("all sessions muted (voice unmute)" if os.path.exists(MUTE_FLAG)
+             else "session started with SPEAK=0" if os.environ.get("SPEAK") == "0"   # `SPEAK=0 claude`
+             else "this session muted (! voice unmute here)" if os.path.exists(os.path.join(SESSION_MUTE_DIR, session))
+             else None)
+    if muted:
+        (SESSION_LAST_DIR / f"{session}.txt").write_text(line)
+        return log(session, f"skipped: {muted}; saved for voice again")
 
     if already_taken(session, line):
         return log(session, "skipped: already spoken by the other copy of this hook (run ./uninstall.sh in the old folder)")

@@ -31,7 +31,7 @@ Inside Claude Code, start with !   e.g.  ! voice pause
   voice stop          stop speaking now                        vo s
   voice pause         pause                                    vo p
   voice resume        continue where it paused                 vo r
-  voice again         say this session's last reply again      vo a
+  voice again         say the last reply, even if muted        vo a
   voice +.2           speak faster by 0.2 (use - for slower)   vo -.1
   voice 1.3           set the speed (0.5 to 2)                 vo 1.3
   voice reset         speed back to the default (1.1)
