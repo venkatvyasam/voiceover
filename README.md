@@ -8,6 +8,7 @@ Claude Code reads its replies aloud in a natural voice. It's free, works offline
 
 - macOS (Apple Silicon or Intel)
 - [Claude Code](https://code.claude.com)
+- git, which Claude Code uses to download plugins. A new Mac doesn't have it: run `xcode-select --install` and click Install
 - [uv](https://docs.astral.sh/uv/): `curl -LsSf https://astral.sh/uv/install.sh | sh`
 - About 500 MB of free disk space (the voice model is 340 MB)
 

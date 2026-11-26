@@ -178,6 +178,9 @@ footer { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 18
       <p>Both kinds work, and setup is the same. If you're curious, run this in Terminal:</p>
       <div class="code"><pre><code>uname -m</code></pre></div>
       <p><code>arm64</code> means Apple Silicon (M1, M2, M3, M4). <code>x86_64</code> means Intel.</p>
+      <h3>Install git, if you don't have it</h3>
+      <p>Claude Code uses git to download plugins. A new Mac doesn't have it, and the install fails with "git is not installed". Check with <code>git --version</code>. If that fails, run this, click <strong>Install</strong> in the window that appears, then restart Claude Code:</p>
+      <div class="code"><pre><code>xcode-select --install</code></pre></div>
       <h3>Install uv, if you don't have it</h3>
       <p>uv manages Python for this tool, so you don't have to. Check with <code>uv --version</code>. If that fails, install it, then open a new Terminal window:</p>
       <div class="code"><pre><code>curl -LsSf https://astral.sh/uv/install.sh | sh</code></pre></div>

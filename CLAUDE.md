@@ -62,4 +62,4 @@ Changes to `voice_server.py` need the running engine stopped first: `kill $(cat 
 
 - Replies here are read aloud by this tool. Prefer short spoken-style paragraphs, and put commands, paths and code in code blocks (the voice skips them).
 - Make changes on a branch (`git checkout -b my-change`). Don't push to `main` without checking with Venkat, who owns the repo.
-- If someone asks to set this up: install the plugin (`/plugin install voiceover --marketplace venkatvyasam/voiceover`), start a new session, then `! voice status`. Prerequisites are macOS 13+, `uv`, and Claude Code. The full guide is `docs/guide.html`.
+- If someone asks to set this up: install the plugin (`/plugin install voiceover --marketplace venkatvyasam/voiceover`), start a new session, then `! voice status`. Prerequisites are macOS 13+, git (`xcode-select --install` on a new Mac; the plugin install fails without it), `uv`, and Claude Code. The full guide is `docs/guide.html`.
