@@ -23,3 +23,6 @@ speak.pause
 engine.json
 engine.lock
 hook.lock
+
+# Local notes, not published
+docs/decisions.html
