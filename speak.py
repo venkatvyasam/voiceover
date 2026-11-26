@@ -74,6 +74,9 @@ GROWTH = 1.8       # each chunk is generated while the previous one plays, and g
                    # ~2.2x faster than speech, so a chunk under ~2x the previous one is ready in time
 MIN_CHUNK = 40     # don't end a chunk on a tiny sentence like "Done." (too short to cover the next)
 LEAD = 0.3         # hand the next chunk to the player when this many seconds of sound are left
+BUFFER = 0.2       # seconds of sound queued at the sound card. With the default (about 0.02 s),
+                   # busy web pages in Chrome made playback crackle; a bigger buffer rides that out.
+                   # Pause takes effect this much later, and still resumes at the exact place.
 ENGINE = DATA / "engine.json"   # the voice engine's process number and network port
 local_kokoro = None  # set only when the engine can't be used
 
@@ -90,10 +93,14 @@ class Player:
         self.queue = collections.deque()   # arrays of samples; the first one is playing
         self.pos = 0                       # how far into queue[0] we are
         self.lock = threading.Lock()
-        self.stream = sd.OutputStream(samplerate=sample_rate, channels=1, dtype="float32", callback=self.fill)
+        self.late = 0                      # times the sound card had to wait for us (heard as a crackle)
+        self.stream = sd.OutputStream(samplerate=sample_rate, channels=1, dtype="float32", callback=self.fill,
+                                      latency=BUFFER, blocksize=1024)
         self.stream.start()
 
-    def fill(self, out, frames, _time, _status):
+    def fill(self, out, frames, _time, status):
+        if status.output_underflow:
+            self.late += 1
         out.fill(0)
         if paused:
             return
@@ -126,6 +133,8 @@ class Player:
         self.wait()
         self.stream.stop()   # returns once the sound card has played the last block
         self.stream.close()
+        if self.late:   # into speak.log: shows whether a crackle was ours
+            print(f"\n=== {time.ctime()} [player] the sound card waited {self.late} times (a crackle each)", flush=True)
 
 
 def chunks(text):
