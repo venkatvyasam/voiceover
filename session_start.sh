@@ -30,8 +30,11 @@ if ! ready; then
   else
     rmdir "$DATA/setup.lock" 2>/dev/null   # left behind by a setup that was interrupted
     nohup "$ROOT/setup.sh" >> "$DATA/setup.log" 2>&1 < /dev/null &
-    say "voiceover: setting up the voice in the background (about 340 MB, a minute or two). You'll hear it say it's ready."
+    say "voiceover: setting up the voice in the background (about 340 MB, a minute or two). You'll hear it say it's ready. Then type  ! vo help  to see the controls."
   fi
+elif [ ! -e "$DATA/welcomed" ]; then   # once, the first session after setup
+  touch "$DATA/welcomed"
+  say "voiceover is on: replies are read aloud. Controls (type them with ! in front): vo p pause, vo r resume, vo s stop, vo a say it again, vo +.2 / vo -.1 faster / slower, vo reset normal speed, vo mute here silence this session, vo help everything."
 fi
 
 [ -n "$msg" ] && printf '{"systemMessage": "%s"}\n' "$msg"

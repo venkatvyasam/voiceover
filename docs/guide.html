@@ -181,29 +181,24 @@ footer { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 18
       <h3>Install uv, if you don't have it</h3>
       <p>uv manages Python for this tool, so you don't have to. Check with <code>uv --version</code>. If that fails, install it, then open a new Terminal window:</p>
       <div class="code"><pre><code>curl -LsSf https://astral.sh/uv/install.sh | sh</code></pre></div>
-      <h3>Get access to the code</h3>
-      <p>The code is in a private GitHub repository. Accept the invitation email from GitHub first. Then install the GitHub command-line tool from <a href="https://cli.github.com">cli.github.com</a> (or <code>brew install gh</code> if you use Homebrew) and sign in:</p>
-      <div class="code"><pre><code>gh auth login</code></pre></div>
     </section>
 
     <section id="install">
       <h2><span class="n">03</span>Install</h2>
+      <p>voiceover is a Claude Code <em>plugin</em>: a package Claude Code installs and keeps up to date for you.</p>
       <ol class="steps">
         <li>
-          <p><strong>Download the code</strong> into a folder in your home directory:</p>
-          <div class="code"><pre><code>gh repo clone venkatvyasam/voiceover ~/voiceover
-cd ~/voiceover</code></pre></div>
+          <p><strong>Install the plugin.</strong> In Claude Code, type:</p>
+          <div class="code"><pre><code>/plugin install voiceover --marketplace venkatvyasam/voiceover</code></pre></div>
         </li>
         <li>
-          <p><strong>Run the installer.</strong> It takes a few minutes the first time, mostly downloading the voice model.</p>
-          <div class="code"><pre><code>./install.sh</code></pre></div>
-          <p>It installs the Python packages inside the folder, downloads the voice model, adds a <code>voice</code> command (and its short form <code>vo</code>), and registers two hooks in <code>~/.claude/settings.json</code>. It backs that file up first. At the end you'll hear "Hello! The Claude Code voice-over is installed."</p>
+          <p><strong>Start a new Claude Code session.</strong> The first time, voiceover sets up its voice by itself in the background: the Python packages and the voice model, about 340 MB, which takes a minute or two. A message at the top of the session says so, and you'll hear "voiceover is ready" when it's done. Everything goes into <code>~/.claude/voiceover</code>, and the <code>voice</code> command (and its short form <code>vo</code>) into <code>~/.local/bin</code>.</p>
         </li>
         <li>
-          <p><strong>If the installer says <code>~/.local/bin</code> is not on your PATH,</strong> run the line it prints, then open a new Terminal window. That makes the <code>voice</code> command work everywhere.</p>
+          <p><strong>If the message says something is missing</strong> (usually uv), install it, then start another session. You can also repeat the setup any time with <code>/voiceover:setup</code>.</p>
         </li>
       </ol>
-      <div class="callout"><b>Keep the folder where it is</b>The hooks point at this folder. If you move or rename it, run <code>./install.sh</code> again from the new location.</div>
+      <p>At the next session start, voiceover shows a short list of its controls, once.</p>
     </section>
 
     <section id="try">
@@ -256,13 +251,11 @@ cd ~/voiceover</code></pre></div>
     <section id="how">
       <h2><span class="n">07</span>How it works</h2>
       <h3>Hooks: your code runs at moments Claude Code chooses</h3>
-      <p>Claude Code can run your own commands at points in its lifecycle, such as "a reply just finished" or "the user just sent a message". These are called <a href="https://code.claude.com/docs/en/hooks">hooks</a>, and they're listed in <code>~/.claude/settings.json</code>. After installing, yours contains:</p>
-      <div class="code"><div class="label">~/.claude/settings.json (excerpt)</div><pre><code>"hooks": {
-  "Stop": [{ "hooks": [{ "type": "command",
-    "command": "\"…/voiceover/.venv/bin/python\" \"…/voiceover/speak_reply.py\"" }] }],
-  "UserPromptSubmit": [{ "hooks": [{ "type": "command",
-    "command": "\"…/voiceover/voice\" --on-prompt 2>/dev/null || true" }] }]
-}</code></pre></div>
+      <p>Claude Code can run your own commands at points in its lifecycle, such as "a reply just finished" or "the user just sent a message". These are called <a href="https://code.claude.com/docs/en/hooks">hooks</a>, and a plugin brings its own. voiceover's are in <code>hooks/hooks.json</code> (shortened here):</p>
+      <div class="code"><div class="label">hooks/hooks.json (excerpt)</div><pre><code>"SessionStart":     …/session_start.sh     sets up the voice the first time
+"Stop":             …/speak_reply.py       a reply finished: read it aloud
+"UserPromptSubmit": …/voice --on-prompt    you sent a message: stop talking</code></pre></div>
+      <p>The plugin's code lives where Claude Code installed it, and moves with every update. Everything that's downloaded or changes (the voice, the log, the last reply) lives in <code>~/.claude/voiceover</code>, so updates never touch it.</p>
       <p>The two hooks give two paths through the tool:</p>
       <div class="flow" role="img" aria-label="When a reply finishes: Claude Code runs speak_reply.py, which starts speak.py, which makes the audio and plays it. When you send a message: Claude Code runs voice --on-prompt, which stops the old speech.">
         <div class="lane">
@@ -324,7 +317,7 @@ cd ~/voiceover</code></pre></div>
       <p>It used to play through <code>afplay</code>, the Mac's built-in audio player, and pause by freezing it. That had two problems: <code>afplay</code> runs about a second after its sound ends, which left a silence between chunks, and a frozen player skipped ahead when unfrozen, because the Mac's sound clock kept running.</p>
 
       <h3>The log</h3>
-      <p>Every reply leaves one line in <code>speak.log</code>, in the tool's folder:</p>
+      <p>Every reply leaves one line in <code>~/.claude/voiceover/speak.log</code>:</p>
       <div class="code"><pre><code>--- Sun Oct 11 11:20:39 2026 [25d0e2d2] spoke 965 chars (payload): 'Recursion is when…'
 --- Sun Oct 11 11:24:02 2026 [25d0e2d2] skipped: reply too short (14 chars, minimum 120)
 --- Sun Oct 11 11:30:15 2026 [7f3a91c0] skipped: this session muted (! voice unmute here)</code></pre></div>
@@ -333,11 +326,12 @@ cd ~/voiceover</code></pre></div>
       <div class="table"><table>
         <thead><tr><th>File</th><th>Role</th></tr></thead>
         <tbody>
+          <tr><td><code>.claude-plugin/</code>, <code>hooks/hooks.json</code></td><td>The plugin's label, its marketplace, and its three hooks</td></tr>
+          <tr><td><code>session_start.sh</code>, <code>setup.sh</code></td><td>The SessionStart hook, and the setup it starts the first time (also <code>/voiceover:setup</code>)</td></tr>
           <tr><td><code>speak_reply.py</code></td><td>The Stop hook: decides whether to speak and what</td></tr>
           <tr><td><code>speak.py</code></td><td>Text to speech with Kokoro, chunked playback, saves the last reply for <code>voice again</code></td></tr>
           <tr><td><code>voice</code></td><td>The controls, plus the UserPromptSubmit hook (<code>--on-prompt</code>)</td></tr>
-          <tr><td><code>setup_hooks.py</code></td><td>Adds or removes the hooks in <code>~/.claude/settings.json</code></td></tr>
-          <tr><td><code>install.sh</code>, <code>uninstall.sh</code></td><td>Setup and removal</td></tr>
+          <tr><td><code>install.sh</code>, <code>uninstall.sh</code>, <code>setup_hooks.py</code></td><td>For working on the code: set up a clone, and remove the hooks an older version put in <code>~/.claude/settings.json</code></td></tr>
           <tr><td><code>audition.py</code></td><td>Plays voices so you can choose one</td></tr>
         </tbody>
       </table></div>
@@ -348,9 +342,9 @@ cd ~/voiceover</code></pre></div>
       <p>All settings are constants at the top of two files. Changes apply from the next reply; no restart needed.</p>
       <h3>Pick a voice</h3>
       <p>Kokoro has 28 English voices. Hear them all say the same sentence (run inside the voiceover folder):</p>
-      <div class="code"><pre><code>.venv/bin/python audition.py af_ am_      # American women, American men
-.venv/bin/python audition.py bf_ bm_      # British women, British men
-.venv/bin/python audition.py af_heart am_fenrir bm_fable   # compare a few</code></pre></div>
+      <div class="code"><pre><code>~/.claude/voiceover/.venv/bin/python audition.py af_ am_      # American women, American men
+~/.claude/voiceover/.venv/bin/python audition.py bf_ bm_      # British women, British men
+~/.claude/voiceover/.venv/bin/python audition.py af_heart am_fenrir bm_fable   # compare a few</code></pre></div>
       <p>Then set <code>VOICE</code> at the top of <code>speak.py</code>, for example <code>VOICE = "am_fenrir"</code>. The default, <code>af_heart</code>, is one of the most natural. <code>am_fenrir</code> and <code>bm_fable</code> are good male voices.</p>
       <h3>Other settings</h3>
       <div class="table"><table>
@@ -371,9 +365,10 @@ cd ~/voiceover</code></pre></div>
         <tbody>
           <tr><td>Status says "MUTED"</td><td>Run <code>voice unmute</code>, or <code>! voice unmute here</code> for the current session.</td></tr>
           <tr><td>"reply too short"</td><td>Expected for replies under 120 characters.</td></tr>
-          <tr><td>"nothing logged yet"</td><td>The hooks haven't run. Start a new Claude Code session. Type <code>/hooks</code> in Claude Code to check that they're listed. If not, run <code>./install.sh</code> again.</td></tr>
-          <tr><td>It worked, then stopped after you moved the folder</td><td>Run <code>./install.sh</code> again from the new location.</td></tr>
-          <tr><td><code>voice: command not found</code></td><td>Add <code>~/.local/bin</code> to your PATH (the installer prints the line), then open a new Terminal window.</td></tr>
+          <tr><td>"nothing logged yet"</td><td>The hooks haven't run. Start a new Claude Code session, and check that <code>/plugin list</code> shows voiceover as on.</td></tr>
+          <tr><td>Status says "Setup: not done yet"</td><td>Start a new session (setup starts by itself), or run <code>/voiceover:setup</code>. Its log is <code>~/.claude/voiceover/setup.log</code>.</td></tr>
+          <tr><td>A message about "old hooks from install.sh"</td><td>Run <code>./uninstall.sh</code> in the folder of the older version.</td></tr>
+          <tr><td><code>voice: command not found</code></td><td>Add <code>~/.local/bin</code> to your PATH (<code>/voiceover:setup</code> prints the line), then open a new Terminal window.</td></tr>
           <tr><td>Speech cuts off mid-sentence</td><td>Another Claude Code session finished a reply (newest wins), or you sent a message. Use <code>voice again</code> to hear it again.</td></tr>
           <tr><td>Status says "spoke" but you heard nothing</td><td>Check your Mac's volume and output device. Error messages from <code>speak.py</code> appear in <code>speak.log</code>.</td></tr>
         </tbody>
@@ -382,9 +377,9 @@ cd ~/voiceover</code></pre></div>
 
     <section id="remove">
       <h2><span class="n">10</span>Uninstall</h2>
-      <div class="code"><pre><code>cd ~/voiceover
-./uninstall.sh</code></pre></div>
-      <p>This removes the two hooks (after backing up your settings) and the <code>voice</code> and <code>vo</code> commands. To remove everything, including the 340 MB model, delete the folder afterwards.</p>
+      <div class="code"><pre><code>/plugin uninstall voiceover@voiceover</code></pre></div>
+      <p>Then delete what it downloaded, including the 340 MB voice, and the <code>voice</code> and <code>vo</code> commands:</p>
+      <div class="code"><pre><code>rm -rf ~/.claude/voiceover ~/.local/bin/voice ~/.local/bin/vo</code></pre></div>
     </section>
 
     <section id="extend">
@@ -392,7 +387,7 @@ cd ~/voiceover</code></pre></div>
       <p>The code is short and commented, which makes it a good place to practise. Try these with Claude Code's help:</p>
       <ul class="ideas">
         <li><strong>Summary mode.</strong> Speak only the first paragraph of each reply, and add <code>voice brief</code> / <code>voice full</code> to switch.<span class="meta">speak_reply.py · the speakable() function</span></li>
-        <li><strong>Hear when Claude needs you.</strong> Add a Notification hook that says "Claude needs your input" when it's waiting for permission.<span class="meta">a new hook in settings.json · see the hooks docs</span></li>
+        <li><strong>Hear when Claude needs you.</strong> Add a Notification hook that says "Claude needs your input" when it's waiting for permission.<span class="meta">a new hook in hooks/hooks.json · see the hooks docs</span></li>
         <li><strong>Change voice from the command line.</strong> <code>voice use am_fenrir</code>, stored in a small settings file instead of edited in code.<span class="meta">voice and speak.py</span></li>
         <li><strong>Say "see the code on screen"</strong> where a code block was skipped, so you know something was there.<span class="meta">speak_reply.py · speakable()</span></li>
         <li><strong>Port it to Linux.</strong> Playback already works there (<code>sounddevice</code>); the install script and the <code>voice</code> script are the parts that assume macOS.<span class="meta">install.sh and voice</span></li>

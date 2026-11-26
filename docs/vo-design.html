@@ -95,8 +95,9 @@
 <tr><td><code>speak.py</code></td><td>Splits the text into chunks, asks the engine for audio, plays the chunks itself, back to back, through <code>sounddevice</code>. Saves the reply for <code>vo again</code>, and replays it with <code>speak.py --play</code>.</td><td>Started by the hook, or by <code>vo again</code></td></tr>
 <tr><td><code>voice_server.py</code></td><td>The voice engine. Keeps Kokoro loaded (about 500 MB, no CPU while idle) and answers over a Unix socket. Quits after 45 idle minutes.</td><td>Started by <code>speak.py</code> when not running</td></tr>
 <tr><td><code>voice</code> (<code>vo</code>)</td><td>The controls, plus the <em>UserPromptSubmit</em> hook entry (<code>--on-prompt</code>).</td><td>When you type it, and on every message you send</td></tr>
-<tr><td><code>setup_hooks.py</code></td><td>Adds or removes the two hooks in <code>~/.claude/settings.json</code>. Backs the file up first.</td><td>By <code>install.sh</code> and <code>uninstall.sh</code></td></tr>
-<tr><td><code>speak.log</code></td><td>One line per reply: spoken, or skipped and why. <code>vo status</code> reads it.</td><td>Appended by the hook</td></tr>
+<tr><td><code>session_start.sh</code>, <code>setup.sh</code></td><td>The plugin's SessionStart hook, and the setup it starts in the background the first time: Python packages and the 340 MB model into <code>~/.claude/voiceover</code>, and the <code>voice</code> / <code>vo</code> wrappers.</td><td>At every session start; setup only when needed, or by <code>/voiceover:setup</code></td></tr>
+<tr><td><code>setup_hooks.py</code></td><td>Removes the two hooks an older <code>install.sh</code> put in <code>~/.claude/settings.json</code>. Backs the file up first.</td><td>By <code>uninstall.sh</code></td></tr>
+<tr><td><code>~/.claude/voiceover/speak.log</code></td><td>One line per reply: spoken, or skipped and why. <code>vo status</code> reads it.</td><td>Appended by the hook</td></tr>
 </tbody></table></div>
 
 <h2><span class="n">3</span>How the pieces connect</h2>
@@ -214,14 +215,16 @@
 <div class="tablewrap"><table>
 <thead><tr><th>Where</th><th>What</th></tr></thead>
 <tbody>
-<tr><td><code>~/.claude/settings.json</code></td><td>The two hooks, added by <code>setup_hooks.py</code>, which also saves a timestamped backup next to it.</td></tr>
+<tr><td><code>hooks/hooks.json</code></td><td>The plugin's three hooks: SessionStart, Stop and UserPromptSubmit. Nothing is added to <code>~/.claude/settings.json</code>.</td></tr>
 <tr><td><code>~/.claude/.speak-off</code></td><td>Exists when all sessions are muted.</td></tr>
 <tr><td><code>~/.claude/speak-muted/&lt;session_id&gt;</code></td><td>Exists when that one session is muted.</td></tr>
-<tr><td><code>~/.local/bin/voice</code>, <code>~/.local/bin/vo</code></td><td>Symlinks to the script.</td></tr>
+<tr><td><code>~/.local/bin/voice</code>, <code>~/.local/bin/vo</code></td><td>Small wrappers that run the <code>voice</code> script of the installed version, found through <code>~/.claude/voiceover/root</code> (the plugin's folder changes with every update).</td></tr>
+<tr><td colspan="2"><strong>Everything below lives in <code>~/.claude/voiceover</code></strong>, never in the plugin's folder, which updates replace.</td></tr>
 <tr><td><code>speak.log</code></td><td>One <code>---</code> line per reply decision; the engine logs with <code>===</code> so <code>vo status</code> does not mistake its lines for a reply.</td></tr>
 <tr><td><code>last.txt</code>, <code>last.wav</code>, <code>last-by-session/</code></td><td>What <code>vo again</code> replays.</td></tr>
-<tr><td><code>voice_server.sock</code>, <code>voice_server.lock</code></td><td>The engine's socket, and a file lock (<code>flock</code>) so only one engine runs.</td></tr>
-<tr><td><code>models/</code></td><td>The 340 MB Kokoro model files, downloaded by <code>install.sh</code>. Not in git.</td></tr>
+<tr><td><code>voice_server.sock</code>, <code>voice_server.lock</code></td><td>The engine's socket, and a file lock (<code>flock</code>) so only one engine runs; the lock also holds the engine's process number.</td></tr>
+<tr><td><code>speak.pid</code>, <code>speak.state</code></td><td>The speaking <code>speak.py</code>'s process number, and whether it's preparing, speaking or paused. Stop and pause signal that number, after checking with <code>ps</code> that it still belongs to <code>speak.py</code>.</td></tr>
+<tr><td><code>.venv/</code>, <code>models/</code>, <code>READY</code></td><td>The Python packages, the 340 MB Kokoro model, and a checksum of <code>uv.lock</code> that says setup is done for this version.</td></tr>
 </tbody></table></div>
 
 <h2><span class="n">8</span>Design rules, and why each exists</h2>
@@ -232,9 +235,9 @@
   <li><strong>The engine's file name must not contain <code>speak.py</code>.</strong> <code>vo stop</code> kills anything matching that, and the engine should survive a stop.</li>
   <li><strong>Speech must work without the engine.</strong> Every engine failure falls back to loading Kokoro inside <code>speak.py</code>, which is slower but audible.</li>
   <li><strong>Voice commands must not stop the speech they target.</strong> The on-prompt hook exempts messages that start with <code>voice</code> or <code>vo</code>.</li>
-  <li><strong>Only <code>setup_hooks.py</code> edits <code>settings.json</code>.</strong> It backs the file up, touches only this tool's hooks, and replaces any older copy so replies are never spoken twice.</li>
+  <li><strong>A reply is spoken once, even with old and new hooks installed.</strong> The Stop hook skips a reply another copy of it took in the last minute, and the SessionStart hook tells you to run <code>./uninstall.sh</code>.</li>
   <li><strong><code>last.wav</code> is written only when complete.</strong> An interrupted reply leaves no partial recording behind.</li>
-  <li><strong>The hooks use this folder's absolute path.</strong> If the folder moves, run <code>./install.sh</code> again.</li>
+  <li><strong>Nothing that changes is written into the plugin's folder.</strong> It is replaced with every update; everything goes in <code>~/.claude/voiceover</code>.</li>
   <li><strong>Use <code>uv</code>, never pip, and keep <code>onnxruntime</code> at 1.23.2.</strong> It is the last version with Intel Mac builds.</li>
 </ul>
 

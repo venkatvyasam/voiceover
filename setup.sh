@@ -64,6 +64,9 @@ esac
 cksum < "$ROOT/uv.lock" | cut -d' ' -f1 > "$DATA/READY"   # a new uv.lock (new packages) means set up again
 echo
 echo "voiceover is set up. Replies will be read aloud."
+echo "Controls (in Claude Code, type them with ! in front):"
+echo "  vo p pause   vo r resume   vo s stop   vo a say it again"
+echo "  vo +.2 / vo -.1 faster / slower   vo reset normal speed   vo help everything"
 if [ "$first_time" = yes ] && [ ! -e ~/.claude/.speak-off ]; then
-  "$DATA/.venv/bin/python" "$ROOT/speak.py" "voiceover is ready. Claude's replies will now be read aloud." || true
+  "$DATA/.venv/bin/python" "$ROOT/speak.py" "voiceover is ready. Claude's replies will now be read aloud. Type vo help to see the controls." || true
 fi
