@@ -205,17 +205,20 @@ GROWTH = 1.8            # next chunk is generated while the previous one plays; 
                         # faster than speech, so a chunk under ~2x the previous one is ready in time
 MIN_CHUNK = 40          # don't end a chunk on a tiny sentence like "Done."
 LEAD = 0.3              # hand the next chunk to the player when this many seconds of sound are left
+BUFFER = 0.2            # seconds of sound queued at the sound card. With the default (about 0.02 s),
+                        # busy web pages in Chrome made playback crackle; a bigger buffer rides that out.
+                        # Pause takes effect this much later, and still resumes at the exact place.
 ENGINE = DATA / "engine.json"   # the voice engine's process number and network port
 local_kokoro = None     # set only when the engine can't be used
 ```
 
 `class Player` (plays chunks one after another with no gap; while paused it sends silence and keeps its place):
-- `__init__(sample_rate)`: `self.rate`, `self.queue = collections.deque()` (arrays of samples; the first is playing), `self.pos = 0` (how far into `queue[0]`), `self.lock = threading.Lock()`, then `self.stream = sd.OutputStream(samplerate=sample_rate, channels=1, dtype="float32", callback=self.fill)` and `self.stream.start()`.
-- `fill(out, frames, _time, _status)` (the sound card calls it for each small block): `out.fill(0)`; if `paused`, return (silence, place kept). Otherwise, under the lock, copy samples from `queue[0][pos:]` into `out[:, 0]` until `frames` are filled or the queue is empty, popping each array once fully played and resetting `pos`. If the queue runs dry, the rest stays silent (it never skips).
+- `__init__(sample_rate)`: `self.rate`, `self.queue = collections.deque()` (arrays of samples; the first is playing), `self.pos = 0` (how far into `queue[0]`), `self.lock = threading.Lock()`, `self.late = 0` (times the sound card had to wait for us, each heard as a crackle), then `self.stream = sd.OutputStream(samplerate=sample_rate, channels=1, dtype="float32", callback=self.fill, latency=BUFFER, blocksize=1024)` and `self.stream.start()`. (The buffer means the sound card asks for audio about 24 times a second instead of about 1,660; measured with Yahoo and Economic Times open in Chrome, the crackling stopped.)
+- `fill(out, frames, _time, status)` (the sound card calls it for each block): if `status.output_underflow`, add 1 to `self.late`; `out.fill(0)`; if `paused`, return (silence, place kept). Otherwise, under the lock, copy samples from `queue[0][pos:]` into `out[:, 0]` until `frames` are filled or the queue is empty, popping each array once fully played and resetting `pos`. If the queue runs dry, the rest stays silent (it never skips).
 - `add(samples)`: append under the lock.
 - `seconds_left()`: `(sum of queued lengths - pos) / rate`, under the lock.
 - `wait(until=0.0)`: sleep 0.05 s at a time while `seconds_left() > until` (paused time doesn't count, because nothing is consumed while paused).
-- `finish()`: `wait()`, then `stream.stop()` (returns once the last block has played) and `stream.close()`.
+- `finish()`: `wait()`, then `stream.stop()` (returns once the last block has played) and `stream.close()`. If `self.late`, print `f"\n=== {time.ctime()} [player] the sound card waited {self.late} times (a crackle each)"` with `flush=True` (stdout goes to speak.log, so the log shows whether a crackle was ours; `===`, not `---`, as in the engine).
 
 Import `kokoro_onnx` **only inside `load_kokoro()`** (it takes about a second to import, and the engine usually makes it unnecessary). `load_kokoro()` returns `Kokoro(DATA/"models/kokoro-v1.0.onnx", DATA/"models/voices-v1.0.bin")`.
 
